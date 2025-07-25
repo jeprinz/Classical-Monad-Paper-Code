@@ -1,4 +1,4 @@
-Require Import base.
+Require Import justprop.
 
 Inductive whileR {A B : Type} (step : A -> A + B) : A -> B -> Prop :=
 | while_base : forall a b, step a = inr b -> whileR step a b

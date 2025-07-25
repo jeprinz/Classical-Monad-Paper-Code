@@ -49,6 +49,7 @@ Definition while {A B : Type} (a : A) (step : A -> A + B) : Partial B.
   - intros x y [whilex whiley].
     destruct x, y.
     + rewrite (whileRFunction _ _ _ _ _ _ whilex whiley).
+      apply Preturn.
       reflexivity.
     + destruct whiley.
       exists b.
@@ -56,7 +57,8 @@ Definition while {A B : Type} (a : A) (step : A -> A + B) : Partial B.
     + destruct whilex.
       exists b.
       assumption.
-    + reflexivity.
+    + apply Preturn.
+      reflexivity.
 Defined.
 
 Theorem whileBase (A B : Type) step (a : A) (b : B)

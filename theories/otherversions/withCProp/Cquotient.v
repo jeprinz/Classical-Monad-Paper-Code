@@ -130,7 +130,7 @@ Module Quotient (EqRel : EqRel).
   Definition lift {T : Type} (f : A -> Classical T)
              (*(respects : forall a b, R a b -> f a = f b)*)
              (x : t) : Classical T.
-    refine (exist _ (fun t0 => (forall a, proj1_sig x a -> (proj1_sig (f a) t0))) _).
+    refine (exist _ (fun t0 => toCProp (forall a, proj1_sig x a -> isTrue (proj1_sig (f a) t0))) _).
     destruct x as [S [unique [a Sa]]].
     simpl.
     split.
@@ -141,6 +141,7 @@ Module Quotient (EqRel : EqRel).
       intros [t Stt].
       apply Preturn.
       exists t.
+      apply Preturn.
       intros.
       Check (proj2_sig (f a0)).
       

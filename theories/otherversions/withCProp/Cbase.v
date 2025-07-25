@@ -1,5 +1,3 @@
-(* In this file, I'm testing why I needed CProp *)
-
 Require Import Coq.Logic.ProofIrrelevance.
 (* Instead of using SProp, for now I'll just use the proof irrelevance axiom.
    I'll see if this causes any issues; probably not. *)
@@ -34,6 +32,16 @@ Qed.
 
 Ltac pbind H := apply (Pbind H); clear H; intros H.
 
+Definition CProp : Type := {P : Prop | exists P', P = PClassical P'}. 
+
+Definition isTrue (P : CProp) : Prop := proj1_sig P.
+
+Definition toCProp (P : Prop) : CProp.
+  refine (exist _ (PClassical P) _).
+  exists P.
+  reflexivity.
+Defined.
+
 Theorem sigEq :
   forall A P S1 S2 p1 p2,
     S1 = S2 -> @eq {a : A | P a} (exist _ S1 p1) (exist _ S2 p2).
@@ -57,6 +65,30 @@ Proof.
   assumption.
 Qed.
 
+Theorem CProp_Ext {P Q : CProp} (f : isTrue P -> isTrue Q) (g : isTrue Q -> isTrue P)
+  : P = Q.
+Proof.
+  destruct P, Q.
+  simpl in *.
+  apply sigEq2.
+  simpl.
+  apply propositional_extensionality.
+  split; assumption.
+Qed.
+
+Theorem unwrap {T : CProp} (H : PClassical (isTrue T)) : isTrue T.
+Proof.
+  destruct T.
+  simpl in *.
+  destruct e.
+  subst.
+  intros p.
+  apply H.
+  intros q.
+  apply q in p.
+  assumption.
+Qed.
+
 Theorem Plem (P : Prop) : PClassical (P \/ ~P).
 Proof.
   intros n.
@@ -70,28 +102,35 @@ Qed.
 
 (* The "Unique" monad, that represents a unique thing that exists non-constructively *)
 Definition Classical (A : Type) : Type :=
-  {S : A -> Prop | PClassical (exists a, S a)
-                    /\ forall x y, S x /\ S y -> x = y}.
+  {S : A -> CProp | PClassical (exists a, isTrue (S a))
+                    /\ forall x y, isTrue (S x) /\ isTrue (S y) -> PClassical (x = y)}.
 
 Definition Creturn {A : Type} (x : A) : Classical A.
-  refine (exist _ (fun y => y = x) _).
+  refine (exist _ (fun y => toCProp (y = x)) _).
   split.
   - apply Preturn.
     exists x.
+    simpl.
+    apply Preturn.
     reflexivity.
   - intros.
     destruct H.
+    simpl in *.
+    apply (Pbind H); clear H; intros H.
+    apply (Pbind H0); clear H0; intros H0.
+    apply Preturn.
     subst.
     reflexivity.
 Defined.
 
-(* In this version, we really get x = y!!! *)
-Theorem CreturnInj : forall A (x y : A), Creturn x = Creturn y -> x = y.
+(* TODO: Confirm that the output really has to be in PClassical. *)
+Theorem CreturnInj : forall A (x y : A), Creturn x = Creturn y -> PClassical (x = y).
 Proof.
   intros.
   pose (@f_equal _ _ (@proj1_sig _ _) _ _ H) as fact.
   simpl in fact.
-  assert (((fun y => ((y = x))) x)). {
+  assert (isTrue ((fun y => (toCProp (y = x))) x)). {
+    apply Preturn.
     reflexivity.
   }
   rewrite fact in H0.
@@ -99,7 +138,8 @@ Proof.
 Qed.
 
 Definition Cbind {A B : Type} (pa : Classical A) (f : A -> Classical B) : Classical B.
-  refine (exist _ (fun b =>  (exists a, (proj1_sig pa a) /\ (proj1_sig (f a) b))) _).
+  refine (exist _ (fun b => toCProp
+                              (exists a, isTrue (proj1_sig pa a) /\ isTrue (proj1_sig (f a) b))) _).
   destruct pa as [Sa [nonempty same]].
   simpl.
   split.
@@ -114,17 +154,23 @@ Definition Cbind {A B : Type} (pa : Classical A) (f : A -> Classical B) : Classi
     apply Preturn.
     destruct H0.
     exists x1.
+    apply Preturn.
     exists x.
     split; auto.
     rewrite <- Heqfx.
     simpl.
     assumption.
   - intros x y [allx ally].
-    specialize allx as [ax [Saax fax]].
-    specialize ally as [ay [Saay fay]].
+    apply (Pbind allx); clear allx; intros [ax [Saax fax]].
+    apply (Pbind ally); clear ally; intros [ay [Saay fay]].
     specialize (same _ _ (conj Saax Saay)).
+    apply (Pbind same); clear same; intro same.
     subst.
-    apply ((proj2 (proj2_sig (f ay)) _ _ (conj fax fay))).
+    apply (Pbind (proj2 (proj2_sig (f ay)) _ _ (conj fax fay))).
+    intros.
+    subst.
+    apply Preturn.
+    reflexivity.
 Defined.
 
 (* one of the monad laws *)
@@ -135,18 +181,26 @@ Proof.
   apply sigEq2.
   simpl.
   extensionality b.
-  apply propositional_extensionality.
-  split.
+  apply CProp_Ext.
   - intros.
     simpl in H.
+    apply unwrap.
+    Check Pbind.
+    apply (Pbind H); clear H; intros H.
     destruct H.
     destruct H.
+    apply (Pbind H); clear H; intros H.
     subst.
+    apply Preturn.
     assumption.
   - intros.
     simpl.
+    apply Preturn.
     exists a.
-    split; auto.
+    split.
+    + apply Preturn.
+      reflexivity.
+    + assumption.
 Qed.
 
 Theorem monadlaw2 (T : Type) (t : Classical T) : Cbind t Creturn = t.
@@ -154,22 +208,28 @@ Proof.
   apply sigEq2.
   extensionality x.
   simpl.
-  apply propositional_extensionality.
-  split.
+  apply CProp_Ext.
   - intros.
     simpl in *.
+    apply unwrap.
+    apply (Pbind H); clear H; intros H.
     destruct H as [a [ta p]].
+    apply (Pbind p); clear p; intros p.
     subst.
+    apply Preturn.
     assumption.
   - intros.
     simpl in *.
+    apply Preturn.
     exists x.
     split; auto.
+    apply Preturn.
+    reflexivity.
 Qed.
 
 (* Can I get this for this version? *)
 Theorem ClassicalInd T (t : Classical T)
-  : PClassical (exists x, Creturn x = t /\ (proj1_sig t x)).
+  : PClassical (exists x, Creturn x = t /\ (isTrue (proj1_sig t x))).
 Proof.
   destruct t as [St [nonempty same]].
   apply (Pbind nonempty); intros [a ta].
@@ -180,16 +240,20 @@ Proof.
     apply sigEq2.
     simpl.
     extensionality t.
-    apply propositional_extensionality.
-    split.
+    apply CProp_Ext.
     + simpl.
       intros.
+      apply unwrap.
+      apply (Pbind H); clear H; intros H.
       subst.
+      apply Preturn.
       assumption.
     + intros.
       simpl.
       specialize (same _ _ (conj ta H)).
+      apply (Pbind same); clear same; intros same.
       subst.
+      apply Preturn.
       reflexivity.
   - simpl.
     assumption.
@@ -198,17 +262,20 @@ Qed.
 (* unique choice *)
 Definition choose (T : Type) (P : T -> Prop)
            (nonempty : PClassical (exists t, P t))
-           (unique : forall x y, P x /\ P y -> x = y)
+           (unique : forall x y, P x /\ P y -> PClassical (x = y))
   : Classical T.
-  refine (exist _ P _).
+  refine (exist _ (fun t => toCProp (P t)) _).
   split.
   - simpl.
     apply (Pbind nonempty); clear nonempty; intros [t Pt].
     apply Preturn.
     exists t.
+    apply Preturn.
     assumption.
   - intros x y [Px Py].
     simpl in *.
+    apply (Pbind Px); clear Px; intros Px.
+    apply (Pbind Py); clear Py; intros Py.
     specialize (unique _ _ (conj Px Py)).
     assumption.
 Defined.
@@ -227,8 +294,11 @@ Proof.
   apply (Pbind nonempty); clear nonempty; intros [t Pt].
   specialize (H _ Pt).
   apply (Pbind H); clear H; intros H.
+  pbind PSt.
   specialize (unique _ _ (conj Pt PSt)).
+  pbind unique.
   subst.
   apply Preturn.
   assumption.
 Qed.
+
