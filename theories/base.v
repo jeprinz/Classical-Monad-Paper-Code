@@ -100,16 +100,27 @@ Proof.
   apply p.
 Qed.
 
-(* Monad for choice *)
+(* The "Unique" monad, that represents a unique thing that exists non-constructively *)
 Definition Classical (A : Type) : Type :=
-  {S : A -> CProp | PClassical (exists a, isTrue (S a))}.
+  {S : A -> CProp | PClassical (exists a, isTrue (S a))
+                    /\ forall x y, isTrue (S x) /\ isTrue (S y) -> PClassical (x = y)}.
 
 Definition Creturn {A : Type} (x : A) : Classical A.
   refine (exist _ (fun y => toCProp (y = x)) _).
-  apply Preturn.
-  exists x.
-  apply Preturn.
-  reflexivity.
+  split.
+  - apply Preturn.
+    exists x.
+    simpl.
+    apply Preturn.
+    reflexivity.
+  - intros.
+    destruct H.
+    simpl in *.
+    apply (Pbind H); clear H; intros H.
+    apply (Pbind H0); clear H0; intros H0.
+    apply Preturn.
+    subst.
+    reflexivity.
 Defined.
 
 (* TODO: Confirm that the output really has to be in PClassical. *)
@@ -129,24 +140,37 @@ Qed.
 Definition Cbind {A B : Type} (pa : Classical A) (f : A -> Classical B) : Classical B.
   refine (exist _ (fun b => toCProp
                               (exists a, isTrue (proj1_sig pa a) /\ isTrue (proj1_sig (f a) b))) _).
-  destruct pa as [Sa nonempty].
-  apply (Pbind nonempty).
-  intros.
+  destruct pa as [Sa [nonempty same]].
   simpl.
-  destruct H.
-  remember (f x) as fx.
-  destruct fx.
-  apply (Pbind p).
-  intros.
-  apply Preturn.
-  destruct H0.
-  exists x1.
-  apply Preturn.
-  exists x.
-  split; auto.
-  rewrite <- Heqfx.
-  simpl.
-  assumption.
+  split.
+  - apply (Pbind nonempty).
+    intros.
+    simpl.
+    destruct H.
+    remember (f x) as fx.
+    destruct fx as [x0 [p sfsdfd]].
+    apply (Pbind p).
+    intros.
+    apply Preturn.
+    destruct H0.
+    exists x1.
+    apply Preturn.
+    exists x.
+    split; auto.
+    rewrite <- Heqfx.
+    simpl.
+    assumption.
+  - intros x y [allx ally].
+    apply (Pbind allx); clear allx; intros [ax [Saax fax]].
+    apply (Pbind ally); clear ally; intros [ay [Saay fay]].
+    specialize (same _ _ (conj Saax Saay)).
+    apply (Pbind same); clear same; intro same.
+    subst.
+    apply (Pbind (proj2 (proj2_sig (f ay)) _ _ (conj fax fay))).
+    intros.
+    subst.
+    apply Preturn.
+    reflexivity.
 Defined.
 
 (* one of the monad laws *)
@@ -179,51 +203,6 @@ Proof.
     + assumption.
 Qed.
 
-(* TODO: Should P output a CProp? *)
-Definition choose (T : Type) (P : T -> Prop) (H : PClassical (exists t, P t)): Classical T.
-  refine (exist _ (fun t => toCProp (P t)) _).
-  apply (Pbind H); clear H; intros H.
-  destruct H as [t Pt].
-  apply Preturn.
-  exists t.
-  simpl.
-  apply Preturn.
-  assumption.
-Defined.
-
-Theorem choice_spec (T : Type) (P : T -> Prop) (H : PClassical (exists t, P t))
-  : Cbind (choose T P H) (fun t => Creturn (P t)) = Creturn True.
-Proof.
-  apply sigEq2.
-  simpl.
-  extensionality X.
-  apply CProp_Ext.
-  - intros.
-    simpl in *.
-    apply (Pbind H0); clear H0; intros H0.
-    destruct H0.
-    destruct H0.
-    apply (Pbind H1); clear H1; intros H1.
-    apply (Pbind H0); clear H0; intros H0.
-    subst.
-    apply Preturn.
-    apply propositional_extensionality; split; auto.
-  - intros.
-    subst.
-    simpl in *.
-    apply (Pbind H); clear H; intros H.
-    destruct H.
-    apply (Pbind H0); clear H0; intros H0.
-    apply Preturn.
-    exists x.
-    subst.
-    split.
-    + apply Preturn.
-      assumption.
-    + apply Preturn.
-      apply propositional_extensionality; split; auto.
-Qed.
-
 Theorem monadlaw2 (T : Type) (t : Classical T) : Cbind t Creturn = t.
 Proof.
   apply sigEq2.
@@ -248,186 +227,78 @@ Proof.
     reflexivity.
 Qed.
 
-Theorem writeInTermsOfBind (T : Type) (t1 t2 : Classical T)
-        (H : Cbind t1 Creturn = Cbind t2 Creturn)
-  : t1 = t2.
+(* Can I get this for this version? *)
+Theorem ClassicalInd T (t : Classical T)
+  : PClassical (exists x, Creturn x = t /\ (isTrue (proj1_sig t x))).
 Proof.
-  repeat rewrite monadlaw2 in H.
-  assumption.
-Qed.
-
-Theorem choiceInd (A B : Type) (P : A -> Prop)
-        {H : PClassical (exists a, P a)}
-        {rest : A -> Classical B}
-        {v : Classical B}
-        (premise : forall x, P x -> rest x = v)
-  : Cbind (choose _ P H) rest = v.
-Proof.
-  apply sigEq2.
-  simpl.
-  extensionality b.
-  apply CProp_Ext.
-  - intros.
-    apply unwrap.
-    simpl in *.
-    apply (Pbind H0); clear H0; intros H0.
-    destruct H0.
-    destruct H0.
-    apply (Pbind H0); clear H0; intros H0.
-    specialize (premise x H0).
-    subst.
-    apply Preturn.
-    assumption.
-  - intros.
-    simpl in *.
-    apply (Pbind H); clear H; intros H.
-    apply Preturn.
-    destruct H.
-    exists x.
-    split.
-    + apply Preturn.
-      assumption.
-    + specialize (premise x H).
-      subst.
-      assumption.
-Qed.
-(*
-(* Is it possible to prove something like this? *)
-Theorem choiceInd2 : forall (T : Type) (P : T -> Prop) (Q : T -> CProp) x,
-    (forall t, P t -> isTrue (Q t)) -> isTrue (Cbind (@choose T P x) Q).
-Abort.
-(* Maybe something like this: *)
-Theorem choice_spec (T : Type) (P : T -> CProp) (H : PClassical (exists t, P t))
-  : isTrue (Cbind (choose T P H) P).
- *)
-
-Theorem choiceInd2 : forall (T : Type) (P : T -> Prop) (Q : Classical T -> Prop)
-                            nonempty
-                            (unique : forall x y, P x -> P y -> PClassical (x = y)),
-    (forall t, P t -> PClassical (Q (Creturn t)))
-    -> PClassical (Q (@choose T P nonempty)).
-Proof.
-  intros.
-  apply (Pbind nonempty). intros [t Pt].
-  specialize (H t Pt).
-
-  assert (choose T P nonempty = Creturn t). {
+  destruct t as [St [nonempty same]].
+  apply (Pbind nonempty); intros [a ta].
+  apply Preturn.
+  exists a.
+  split.
+  - 
     apply sigEq2.
     simpl.
-    extensionality t'.
+    extensionality t.
     apply CProp_Ext.
-    simpl.
-    - intros.
-      pbind H0.
-      apply unique; assumption.
-    - simpl.
+    + simpl.
       intros.
-      pbind H0.
+      apply unwrap.
+      apply (Pbind H); clear H; intros H.
       subst.
       apply Preturn.
       assumption.
-  }
-  rewrite H0.
-  assumption.
-Qed.
-
-Inductive whileR {A B : Type} (step : A -> A + B) : A -> B -> Prop :=
-| while_base : forall a b, step a = inr b -> whileR step a b
-| while_step : forall a a' b, step a = inl a'
-                              -> whileR step a' b
-                              -> whileR step a b
-.
-
-Theorem whileRFunction : forall A B step a b1 b2,
-    @whileR A B step a b1 
-    -> @whileR A B step a b2
-    -> b1 = b2.
-Proof.
-  intros.
-  induction H; inversion H0.
-  - rewrite H in H1.
-    inversion H1.
-    subst.
-    reflexivity.
-  - rewrite H in H1.
-    inversion H1.
-  - rewrite H in H2.
-    inversion H2.
-  - rewrite H in H2.
-    inversion H2.
-    subst.
-    specialize (IHwhileR H3).
-    subst.
-    reflexivity.
-Qed.
-
-Definition Partial (T : Type) : Type := Classical (option T).
-
-Definition while {A B : Type} (a : A) (step : A -> A + B) : Partial B.
-  refine (choose _ (fun ob => match ob with
-                              | None => ~ exists b, whileR step a b
-                              | Some b => whileR step a b
-                              end) _).
-  apply (Pbind (Plem (exists b, whileR step a b))); intros.
-  destruct H.
-  - destruct H.
-    apply Preturn.
-    exists (Some x).
+    + intros.
+      simpl.
+      specialize (same _ _ (conj ta H)).
+      apply (Pbind same); clear same; intros same.
+      subst.
+      apply Preturn.
+      reflexivity.
+  - simpl.
     assumption.
-  - apply Preturn.
-    exists None.
+Qed.
+
+(* unique choice *)
+Definition choose (T : Type) (P : T -> Prop)
+           (nonempty : PClassical (exists t, P t))
+           (unique : forall x y, P x /\ P y -> PClassical (x = y))
+  : Classical T.
+  refine (exist _ (fun t => toCProp (P t)) _).
+  split.
+  - simpl.
+    apply (Pbind nonempty); clear nonempty; intros [t Pt].
+    apply Preturn.
+    exists t.
+    apply Preturn.
+    assumption.
+  - intros x y [Px Py].
+    simpl in *.
+    apply (Pbind Px); clear Px; intros Px.
+    apply (Pbind Py); clear Py; intros Py.
+    specialize (unique _ _ (conj Px Py)).
     assumption.
 Defined.
 
-Theorem whileBase (A B : Type) step (a : A) (b : B)
-        (H : step a = inr b)
-  : while a step = Creturn (Some b).
+Theorem choiceInd : forall (T : Type) (P : T -> Prop) (Q : Classical T -> Prop)
+                            nonempty unique,
+    (forall t, P t -> PClassical (Q (Creturn t)))
+    -> PClassical (Q (@choose T P nonempty unique)).
 Proof.
-  apply writeInTermsOfBind.
-  rewrite bindDef.
-  unfold while.
-  rewrite @choiceInd with (v := Creturn (Some b)).
-  reflexivity.
   intros.
-  apply f_equal.
-  destruct x.
-  - rewrite (whileRFunction _ _ _ _ _ _ (while_base _ _ _ H) H0).
-    reflexivity.
-  - apply while_base in H.
-    exfalso.
-    apply H0.
-    exists b.
-    assumption.
+  apply (Pbind (ClassicalInd _ (choose T P nonempty unique))).
+  simpl.
+  intros [St [eq PSt]].
+  rewrite <- eq.
+  clear eq.
+  apply (Pbind nonempty); clear nonempty; intros [t Pt].
+  specialize (H _ Pt).
+  apply (Pbind H); clear H; intros H.
+  pbind PSt.
+  specialize (unique _ _ (conj Pt PSt)).
+  pbind unique.
+  subst.
+  apply Preturn.
+  assumption.
 Qed.
 
-Theorem whileStep (A B : Type) step (a a' : A)
-        (H : step a = inl a')
-  : @while A B a step = while a' step.
-Proof.
-  apply writeInTermsOfBind.
-  Check choiceInd.
-  unfold while.
-  erewrite choiceInd; try reflexivity.
-  symmetry.
-  erewrite choiceInd; try reflexivity.
-  intros.
-  symmetry.
-  apply f_equal.
-
-  destruct x, x0.
-  - rewrite (whileRFunction _ _ _ _ _ _ (while_step _ _ _ _ H H1) H0).
-    reflexivity.
-  - destruct H1.
-    inversion H0.
-    + rewrite H in H1.
-      inversion H1.
-    + rewrite H in H1.
-      inversion H1.
-      subst.
-      exists b.
-      assumption.
-  - destruct H0.
-    exists b.
-    apply while_step with (a' := a'); assumption.
-  - reflexivity.
-Qed.
