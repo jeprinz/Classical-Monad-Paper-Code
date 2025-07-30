@@ -351,3 +351,26 @@ Ltac asreturn2 H :=
   specialize H2 as [new [eq _]];
   rewrite <- eq in *;
   clear eq.
+
+Theorem monadlaw3 {A B C : Type} {m : Classical A} {g : A -> Classical B} {h : B -> Classical C}
+  : (Cbind (Cbind m g) h) = Cbind m (fun x => Cbind (g x) h).
+Proof. 
+    intros.
+  apply sigEq2.
+  simpl.
+  extensionality c.
+  apply propositional_extensionality.
+  split.
+    - intros [b [[a [ma gab]] hbc]].
+      exists a.
+      split.
+      + assumption.
+      + exists b.
+        split; assumption.
+    - intros [a [ma [b [gab hbc]]]].
+      exists b.
+      split.
+      + exists a.
+        split; assumption.
+      + assumption.
+Qed.

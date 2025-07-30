@@ -57,6 +57,10 @@ Definition cauchy : Type :=
          Creturn (Qle (Qabs (x - y)) epsilon))))
   }.
 
+Definition cproj (c : cauchy) (n : nat) : CQ :=
+  match c with
+  | exist _ s _ => s n
+  end.
 
 Definition Ceq (seq1 seq2 : cauchy) : Prop :=
     forall epsilon : Q, epsilon > 0 -> exists N : nat, forall n m : nat, le N n -> le N m ->
@@ -153,7 +157,8 @@ Proof.
   assert (premise1 := H n).
   assert (premise2 := H m).
   clear H.
-  
+
+  Check (proj1_sig x n).
   asreturn2 (proj1_sig x n).
   asreturn2 (proj1_sig y m).
   asreturn2 (proj1_sig x m).
@@ -184,35 +189,48 @@ Qed.
 Theorem Cplus_comm : forall x y, Ceq (Cplus x y) (Cplus y x).
 Proof.
   intros.
-  unfold Ceq.
+  apply exact_equality.
   intros.
 
-  destruct (proj2_sig (Cplus x y) epsilon H) as [N1 p1].
-  destruct (proj2_sig (Cplus y x) epsilon H) as [N2 p2].
-  exists (max N1 N2).
+  simpl.
+
+  assert CQ as c by give_up.
+  assert (proj1_sig x n = c) as H by give_up.
+  Fail rewrite H.
+
+  (* WHY CAN"T I rewrite by this?? *)
+  rewrite monadlaw3.
+
+  Set Printing All.
+
+  (* They are somehow different *)
   
-  intros.
-  specialize (p1 n m (Nat.max_lub_l _ _ _ H0) (Nat.max_lub_l _ _ _ H1)).
-  specialize (p2 n m (Nat.max_lub_r _ _ _ H0) (Nat.max_lub_r _ _ _ H1)).
+  rewrite H.
 
-  asreturn2 (proj1_sig (Cplus x y) n).
-  asreturn2 (proj1_sig (Cplus y x) n).
-  asreturn2 (proj1_sig (Cplus x y) m).
-  asreturn2 (proj1_sig (Cplus y x) m).
+
+  Check monadlaw2.
+  unfold toProp.
+  unfold PClassical.
+  Check (proj1_sig x n).
+  Set Printing All.
+  unfold Cbind.
+  
+
+  Ltac asreturn3 H :=
+  let H2 := fresh "H2" in
+  let eq := fresh "eq" in
+  let new := fresh "x" in
+  let Px := fresh "Px" in
+  pose (H2 := ClassicalInd _ H); pbind H2; specialize H2 as [new [eq _]]; rewrite <- eq in *; clear
+   eq.
+
+  Check (proj1_sig (proj1_sig (Cplus x y) n)).
+  asreturn3 (proj1_sig (Cplus x y) n).
+  asreturn3 (proj1_sig (Cplus y x) n).
   repeat rewrite bindDef in *.
   apply toPropRet.
-  apply toPropRet1 in p1, p2.
-  pbind p1.
-  pbind p2.
   apply Preturn.
-  Search Qabs Qle.
-  apply Qabs_Qle_condition.
-  apply Qabs_Qle_condition in p1, p2.
-  destruct p1, p2.
-  split.
-  - eapply Qle_trans.
-    apply H2.
-    apply p2.
+  
 (*
 Definition Cmap2 (T : Type) (f : Q -> Q -> Q) (seq1 seq2 : cauchy) : cauchy.
   refine (exist _ (fun n => Cbind (proj1_sig seq1 n) (fun x =>
