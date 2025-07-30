@@ -275,6 +275,7 @@ Ltac asreturn H :=
 Definition toProp (p : Classical Prop) : Prop :=
   PClassical (p = Creturn True).
 
+(*
 Theorem toPropRet (P : Prop) : P -> toProp (Creturn P).
 Proof.
   intros.
@@ -294,3 +295,59 @@ Proof.
     apply propositional_extensionality.
     split; auto.
 Qed.
+*)
+
+Theorem toPropRet : forall P, toProp (Creturn P) <-> PClassical P.
+Proof.
+  intros.
+  split.
+  - intros.
+    pbind H.
+    apply Preturn.
+    apply (@f_equal _ _ (@proj1_sig _ _)) in H.
+    simpl in H.
+    apply (@f_equal _ _ (fun f => f True)) in H.
+    assert (True = True) by reflexivity.
+    rewrite <- H in H0.
+    rewrite <- H0.
+    constructor.
+  - intros.
+    unfold toProp.
+    pbind H.
+    apply Preturn.
+    apply sigEq2.
+    simpl.
+    extensionality y.
+    apply propositional_extensionality.
+    split.
+    + intros.
+      subst.
+      apply propositional_extensionality.
+      split; auto.
+    + intros.
+      subst.
+      apply propositional_extensionality.
+      split; auto.
+Qed.
+
+Theorem toPropRet1 : forall P, toProp (Creturn P) -> PClassical P.
+Proof.
+  apply toPropRet.
+Qed.
+
+Theorem toPropRet2 : forall P, PClassical P -> toProp (Creturn P).
+Proof.
+  apply toPropRet.
+Qed.
+
+
+Ltac asreturn2 H :=
+  let H2 := fresh "H2" in
+  let eq := fresh "eq" in
+  let new := fresh "x" in
+  let Px := fresh "Px" in
+  pose (H2 := ClassicalInd _ H);
+  pbind H2;
+  specialize H2 as [new [eq _]];
+  rewrite <- eq in *;
+  clear eq.
