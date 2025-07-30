@@ -232,3 +232,65 @@ Proof.
   apply Preturn.
   assumption.
 Qed.
+  
+Theorem classicalInd : forall {T : Type} {Q : Classical T -> Prop} (c : Classical T),
+    (forall t, PClassical (Q (Creturn t)))
+    -> PClassical (Q c).
+Proof.
+  intros.
+  Check ClassicalInd.
+  assert (PClassical (exists x, c = Creturn x)) as fact. {
+    destruct c as [c [nonempty unique]].
+    apply (Pbind nonempty); intros [t Ct].
+    apply Preturn.
+    exists t.
+    apply sigEq2.
+    simpl.
+    extensionality t'.
+    apply propositional_extensionality.
+    split.
+    - intros.
+      apply unique.
+      auto.
+    - intros.
+      subst.
+      assumption.
+  }
+  
+  pbind fact.
+  specialize fact as [t p].
+  subst.
+  apply H.
+Qed.
+
+Ltac asreturn H :=
+  let H2 := fresh "H2" in
+  let eq := fresh "eq" in
+  let new := fresh H in
+  pose (H2 := ClassicalInd _ H);
+  pbind H2;
+  specialize H2 as [new [eq _]];
+  subst H.
+
+Definition toProp (p : Classical Prop) : Prop :=
+  PClassical (p = Creturn True).
+
+Theorem toPropRet (P : Prop) : P -> toProp (Creturn P).
+Proof.
+  intros.
+  unfold toProp.
+  apply Preturn.
+  apply sigEq2.
+  simpl.
+  extensionality y.
+  apply propositional_extensionality.
+  split.
+  - intros.
+    subst.
+    apply propositional_extensionality.
+    split; auto.
+  - intros.
+    subst.
+    apply propositional_extensionality.
+    split; auto.
+Qed.
