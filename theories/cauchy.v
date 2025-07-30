@@ -49,6 +49,7 @@ Definition cauchy' : Type :=
     forall epsilon : Q, epsilon > 0 -> exists N : nat, forall n : nat, le N n ->
      Qle (Qabs (seq N - seq n)) epsilon}.
 
+(*
 Definition cauchy : Type :=
   {seq : nat -> CQ |
     forall epsilon : Q, epsilon > 0 -> exists N : nat, forall n m : nat, le N n -> le N m ->
@@ -56,21 +57,26 @@ Definition cauchy : Type :=
          Cbind (seq n) (fun x => Cbind (seq m) (fun y =>
          Creturn (Qle (Qabs (x - y)) epsilon))))
   }.
+*)
+Record cauchy : Type :=
+  { seq : nat -> CQ
+  ; property : forall epsilon : Q, epsilon > 0 -> exists N : nat,
+     forall n m : nat, le N n -> le N m ->
+     toProp (
+         Cbind (seq n) (fun x => Cbind (seq m) (fun y =>
+         Creturn (Qle (Qabs (x - y)) epsilon))))
 
-Definition cproj (c : cauchy) (n : nat) : CQ :=
-  match c with
-  | exist _ s _ => s n
-  end.
+  }.
 
 Definition Ceq (seq1 seq2 : cauchy) : Prop :=
     forall epsilon : Q, epsilon > 0 -> exists N : nat, forall n m : nat, le N n -> le N m ->
      toProp (
-     Cbind (proj1_sig seq1 n) (fun x => Cbind (proj1_sig seq2 m) (fun y =>
+     Cbind (seq seq1 n) (fun x => Cbind (seq seq2 m) (fun y =>
      Creturn (Qle (Qabs (x - y)) epsilon)))).
 
 Definition Clt (seq1 seq2 : cauchy) : Prop :=
   exists N : nat, forall n m : nat, le N n -> le N m ->
-     Cbind (proj1_sig seq1 n) (fun x => Cbind (proj1_sig seq2 m) (fun y =>
+     Cbind (seq seq1 n) (fun x => Cbind (seq seq2 m) (fun y =>
      Creturn (Qle x  y)))
      = Creturn True.
 
@@ -78,15 +84,15 @@ Require Import PeanoNat.
 Require Import Nat.
 
 Definition Cplus1 (seq1 seq2 : cauchy) : cauchy.
-  refine (exist _ (fun n => CQplus (proj1_sig seq1 n) (proj1_sig seq2 n)) _).
+  refine {|seq := fun n => CQplus (seq seq1 n) (seq seq2 n)|}.
   intros.
 Abort.
 
 
 Definition Cplus (seq1 seq2 : cauchy) : cauchy.
-  refine (exist _ (fun n => Cbind (proj1_sig seq1 n) (fun x =>
-                            Cbind (proj1_sig seq2 n) (fun y =>
-                            Creturn (Qplus x y)))) _).
+  refine {| seq := (fun n => Cbind (seq seq1 n) (fun x =>
+                            Cbind (seq seq2 n) (fun y =>
+                            Creturn (Qplus x y))))|}.
   intros.
   pose (halfe := Qdiv epsilon 2).
   assert (halfe > 0) as Hh. {
@@ -95,10 +101,10 @@ Definition Cplus (seq1 seq2 : cauchy) : cauchy.
     - apply Qinv_lt_0_compat.
       repeat constructor.
   }
-  Check (proj2_sig seq2).
-  Check (proj2_sig seq2 halfe Hh).
-  destruct (proj2_sig seq1 halfe Hh) as [N1 p1].
-  destruct (proj2_sig seq2 halfe Hh) as [N2 p2].
+  Check (seq seq2).
+  Check (property seq2 halfe Hh).
+  destruct (property seq1 halfe Hh) as [N1 p1].
+  destruct (property seq2 halfe Hh) as [N2 p2].
   exists (max N1 N2).
   intros.
   Check ClassicalInd.
@@ -110,10 +116,10 @@ Definition Cplus (seq1 seq2 : cauchy) : cauchy.
   specialize (cauchyfact1 n m).*)
   specialize (p1 n m (Nat.max_lub_l _ _ _ H0) (Nat.max_lub_l _ _ _ H1)).
   specialize (p2 n m (Nat.max_lub_r _ _ _ H0) (Nat.max_lub_r _ _ _ H1)).
-  asreturn2 (proj1_sig seq1 n).
-  asreturn2 (proj1_sig seq2 n).
-  asreturn2 (proj1_sig seq1 m).
-  asreturn2 (proj1_sig seq2 m).
+  asreturn2 (seq seq1 n).
+  asreturn2 (seq seq2 n).
+  asreturn2 (seq seq1 m).
+  asreturn2 (seq seq2 m).
   repeat rewrite bindDef in *.
   apply toPropRet1 in p2, p1.
   pbind p1.
@@ -138,16 +144,16 @@ Defined.
 
 Theorem exact_equality (x y : cauchy)
         (H : forall n, toProp (
-                           Cbind (proj1_sig x n) (fun qx =>
-                           Cbind (proj1_sig y n) (fun qy =>
+                           Cbind (seq x n) (fun qx =>
+                           Cbind (seq y n) (fun qy =>
                            Creturn (Qeq qx qy)))))
   : Ceq x y.
 Proof.
   unfold Ceq.
   intros.
 
-  destruct (proj2_sig x epsilon H0) as [N1 p1].
-  destruct (proj2_sig y epsilon H0) as [N2 p2].
+  destruct (property x epsilon H0) as [N1 p1].
+  destruct (property y epsilon H0) as [N2 p2].
   exists (max N1 N2).
   
   intros.
@@ -158,11 +164,11 @@ Proof.
   assert (premise2 := H m).
   clear H.
 
-  Check (proj1_sig x n).
-  asreturn2 (proj1_sig x n).
-  asreturn2 (proj1_sig y m).
-  asreturn2 (proj1_sig x m).
-  asreturn2 (proj1_sig y n).
+  Check (seq x n).
+  asreturn2 (seq x n).
+  asreturn2 (seq y m).
+  asreturn2 (seq x m).
+  asreturn2 (seq y n).
   repeat rewrite bindDef in *.
   apply toPropRet1 in premise1, premise2, p1, p2.
   pbind premise1.
@@ -194,47 +200,12 @@ Proof.
 
   simpl.
 
-  assert CQ as c by give_up.
-  assert (proj1_sig x n = c) as H by give_up.
-  Fail rewrite H.
+  asreturn2 (seq x n).
+  asreturn2 (seq y n).
 
-  (* WHY CAN"T I rewrite by this?? *)
-  rewrite monadlaw3.
-
-  Set Printing All.
-
-  (* They are somehow different *)
-  
-  rewrite H.
-
-
-  Check monadlaw2.
-  unfold toProp.
-  unfold PClassical.
-  Check (proj1_sig x n).
-  Set Printing All.
-  unfold Cbind.
-  
-
-  Ltac asreturn3 H :=
-  let H2 := fresh "H2" in
-  let eq := fresh "eq" in
-  let new := fresh "x" in
-  let Px := fresh "Px" in
-  pose (H2 := ClassicalInd _ H); pbind H2; specialize H2 as [new [eq _]]; rewrite <- eq in *; clear
-   eq.
-
-  Check (proj1_sig (proj1_sig (Cplus x y) n)).
-  asreturn3 (proj1_sig (Cplus x y) n).
-  asreturn3 (proj1_sig (Cplus y x) n).
   repeat rewrite bindDef in *.
   apply toPropRet.
   apply Preturn.
-  
-(*
-Definition Cmap2 (T : Type) (f : Q -> Q -> Q) (seq1 seq2 : cauchy) : cauchy.
-  refine (exist _ (fun n => Cbind (proj1_sig seq1 n) (fun x =>
-                            Cbind (proj1_sig seq2 n) (fun y =>
-                            Creturn (f x y)))) _).
-  intros.
-*)
+  apply Qplus_comm.
+Qed.
+
