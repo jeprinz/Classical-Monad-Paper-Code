@@ -206,12 +206,40 @@ Qed.
 Definition bind {A B : Type} (a : option A) (f : A -> option B) : option B.
 Admitted.
 
+Theorem runProgDefinitionRecType {A B : Type} (def : A -> Prog A B) (a : A)
+        (rest : B -> Prog A B)
+  : Type.
+  refine (PClassical
+            (runProgImpl def (Rec _ _ a rest)
+             =
+             Cbind (runProgImpl def (def a)) (fun ob =>
+             match ob with
+             | Some b => runProgImpl def (rest b)
+             | None => Creturn None
+             end))).
+Abort.
+
+
 (* I probably need a monad transormer? *)
 
 Theorem runProgDefinitionRec {A B : Type} (def : A -> Prog A B) (a : A)
         (rest : B -> Prog A B)
-  : PClassical (runProgImpl def (Rec _ _ a rest) =
-                  Cbind (runProgImpl def (def a)) (fun ob =>
-                  bind ob (fun b =>
-                  Cbind 
-               (*runProgImpl def (rest b))).*)
+  : PClassical
+            (runProgImpl def (Rec _ _ a rest)
+             =
+             Cbind (runProgImpl def (def a)) (fun ob =>
+             match ob with
+             | Some b => runProgImpl def (rest b)
+             | None => Creturn None
+             end)).
+Proof.
+  apply (choiceInd _ _ (fun x => x = Cbind _ _)).
+  intros.
+  apply (choiceInd _ _ (fun x => Creturn t = Cbind x _)).
+  intros.
+  rewrite bindDef.
+  
+  destruct t0.
+  - apply choiceInd.
+    intros.
+    

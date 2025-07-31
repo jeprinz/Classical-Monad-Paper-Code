@@ -6,16 +6,21 @@ Require Import Coq.Logic.ProofIrrelevance.
 Require Import FunctionalExtensionality.
 Require Import Coq.Logic.PropExtensionality.
 
+(*
+In this version, I'm going to try to shorten the definition of Classical and see if everything
+still works, and if it makes it nicer or less nice.
+ *)
+
 Definition PClassical (P : Prop) : Prop := not (not P).
-Notation "[ T ]" := (PClassical T).
-Definition Preturn {A : Prop} (x : A) : [A].
+
+Definition Preturn {A : Prop} (x : A) : PClassical A.
 Proof.
   intro na.
   apply na.
   apply x.
 Qed.
 
-Theorem Pbind {A B : Prop} (pa : [A]) (f : A -> [B]) : [B].
+Theorem Pbind {A B : Prop} (pa : PClassical A) (f : A -> PClassical B) : PClassical B.
   Proof.
   unfold PClassical in *.
   intros nb.
@@ -62,22 +67,95 @@ Proof.
   apply p.
 Qed.
 
-(* The "Unique" monad, that represents a unique thing that exists non-constructively *)
-(*TODO: would there be any reason to put a PClassical around the "x = y"? *)
-Definition Classical (A : Type) : Type :=
-  {S : A -> Prop | PClassical (exists a, S a)
-                    /\ forall x y, S x /\ S y -> x = y}.
+(*
 
-Notation "[[ T ]]" := (Classical T).
+Question: can I derive one version from the other?
 
-Definition Creturn {A : Type} (x : A) : [[ A ]].
-  refine (exist _ (fun y => y = x) _).
+ *)
+
+Theorem canIdoIt : forall A (S : A -> Prop),
+    (PClassical (exists a, S a)
+    /\ forall x y, S x /\ S y -> x = y)
+    <->
+      (PClassical (exists! a, S a)).
+Proof.
+  intros.
   split.
-  - apply Preturn.
-    exists x.
-    reflexivity.
+  - intros [n u].
+    pbind n.
+    apply Preturn.
+    specialize n as [a Sa].
+    exists a.
+    split.
+    + assumption.
+    + intros.
+      specialize (u _ _ (conj Sa H)).
+      subst.
+      reflexivity.
   - intros.
-    destruct H.
+    split.
+    + pbind H.
+      specialize H as [a Sa].
+      apply Preturn.
+      destruct Sa.
+      exists a.
+      auto.
+    + 
+Abort.
+
+Theorem maybeICanDoThisThough : forall A (S : A -> Prop),
+    (PClassical (exists a, S a)
+    /\ forall x y, S x /\ S y -> PClassical (x = y))
+    <->
+      (PClassical (exists a, S a /\ forall a', S a' -> PClassical (a = a'))).
+Proof.
+  intros.
+  split.
+  - intros [n u].
+    pbind n.
+    apply Preturn.
+    specialize n as [a Sa].
+    exists a.
+    split.
+    + assumption.
+    + intros.
+      specialize (u _ _ (conj Sa H)).
+      assumption.
+  - intros.
+    split.
+    + pbind H.
+      specialize H as [a Sa].
+      apply Preturn.
+      destruct Sa.
+      exists a.
+      auto.
+    + intros.
+      pbind H.
+      destruct H as [a [Sa u]].
+      destruct H0.
+      assert (u1 := u _ H).
+      assert (u2 := u _ H0).
+      pbind u1.
+      pbind u2.
+      apply Preturn.
+      subst.
+      reflexivity.
+Qed.
+
+(* The "Unique" monad, that represents a unique thing that exists non-constructively *)
+Definition Classical (A : Type) : Type :=
+  (*
+  {S : A -> Prop | PClassical (exists a, S a)
+                    /\ forall x y, S x /\ S y -> x = y}.*)
+  {S : A -> Prop | PClassical (exists! a, S a)}.
+
+Definition Creturn {A : Type} (x : A) : Classical A.
+  refine (exist _ (fun y => y = x) _).
+  apply Preturn.
+  exists x.
+  split.
+  - reflexivity.
+  - intros.
     subst.
     reflexivity.
 Defined.
@@ -97,26 +175,27 @@ Qed.
 
 Definition Cbind {A B : Type} (pa : Classical A) (f : A -> Classical B) : Classical B.
   refine (exist _ (fun b =>  (exists a, (proj1_sig pa a) /\ (proj1_sig (f a) b))) _).
-  destruct pa as [Sa [nonempty same]].
+  destruct pa as [Sa nonemptysame].
   simpl.
+  pbind nonemptysame.
+  specialize nonemptysame as [a [nonempty same]].
+  remember (f a) as fa.
+  destruct fa as [x0 aBa].
+  apply (Pbind aBa).
+  intros [a0 [x0a0]].
+  apply Preturn.
+  exists a0.
   split.
-  - apply (Pbind nonempty).
-    intros.
-    simpl.
-    destruct H.
-    remember (f x) as fx.
-    destruct fx as [x0 [p sfsdfd]].
-    apply (Pbind p).
-    intros.
-    apply Preturn.
-    destruct H0.
-    exists x1.
-    exists x.
+  - exists a.
     split; auto.
-    rewrite <- Heqfx.
+    rewrite <- Heqfa.
     simpl.
     assumption.
-  - intros x y [allx ally].
+  - intros b [a1 [Saa1 fa1b]].
+    apply H.
+    Check (proj2_sig (f a1)).
+    
+    Check ((proj2_sig (f a1))).
     specialize allx as [ax [Saax fax]].
     specialize ally as [ay [Saay fay]].
     specialize (same _ _ (conj Saax Saay)).
