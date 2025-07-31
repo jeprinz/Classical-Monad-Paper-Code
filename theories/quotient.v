@@ -128,47 +128,44 @@ Module Quotient (EqRel : EqRel).
   Qed.
 
   Definition lift {T : Type} (f : A -> Classical T)
-             (*(respects : forall a b, R a b -> f a = f b)*)
+             (respects : forall a b, R a b -> f a = f b)
              (x : t) : Classical T.
-    refine (exist _ (fun t0 => (forall a, proj1_sig x a -> (proj1_sig (f a) t0))) _).
-    destruct x as [S [unique [a Sa]]].
+    refine (exist _ (fun t0 => forall a, proj1_sig x a -> proj1_sig (f a) t0) _).
+    destruct x as [S [SR [a Sa]]].
     simpl.
     split.
     -
       remember (f a) as fa.
-      destruct (f a) as [St [tnonempty tunique]].
+      destruct fa as [St [tnonempty tunique]].
+      simpl in *.
       apply (Pbind tnonempty).
       intros [t Stt].
       apply Preturn.
       exists t.
       intros.
-      Check (proj2_sig (f a0)).
-      
-      destruct tnonempty as [t Stt].
-      apply Preturn.
-      exists t.
+      assert (R a a0) as Raa0. {
+        apply SR; assumption.
+      }
+      specialize (respects _ _ Raa0).
+      rewrite <- respects.
+      rewrite <- Heqfa.
       simpl.
-      apply Preturn.
-      intros.
-      
-    
-    
-    intros.
-    destruct x as [S [property [a Sa]]].
-    specialize (H a Sa).
-    specialize (H0 a Sa).
-    exact (proj2_sig (f a) _ _ H H0).
+      assumption.
+    - intros x y [fax fay].
+      specialize (fax a Sa).
+      specialize (fay a Sa).
+      Check (proj2_sig (f a)).
+      destruct (proj2_sig (f a)) as [_ unique].
+      specialize (unique _ _ (conj fax fay)).
+      assumption.
   Defined.
-  (* lift_eq uses the "respects" premise, but lift doesn't.
-     beccause of the way that lift is defined, if f maps different elements of an equivalence
-    class of x to different outputs, then (lift f x) is simply empty. *)
 
-  Theorem lift_eq : forall {T : Type} (f : A -> Partial T)
+  Theorem lift_eq : forall {T : Type} (f : A -> Classical T)
                            (respects : forall a b, R a b -> f a = f b)
-                           (a : A), lift f (*respects*) (mk a) = f a.
+                           (a : A), lift f respects (mk a) = f a.
   Proof.
     intros.
-    apply partialEq2.
+    apply sigEq2.
     simpl.
     extensionality t0.
     apply propositional_extensionality.

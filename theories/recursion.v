@@ -1,4 +1,6 @@
 Require Import base.
+Require Import FunctionalExtensionality.
+Require Import Coq.Logic.PropExtensionality.
 
 Inductive whileR {A B : Type} (step : A -> A + B) : A -> B -> Prop :=
 | while_base : forall a b, step a = inr b -> whileR step a b
@@ -201,6 +203,35 @@ Proof.
       destruct H0.
       exists b.
       constructor.
+Qed.
+
+Theorem runProgDefinitionRet2 {A B : Type} (def : A -> Prog A B) (b : B)
+  : runProgImpl def (Ret _ _ b) = Creturn (Some b).
+Proof.
+  apply sigEq2.
+  simpl.
+  extensionality ob.
+  apply propositional_extensionality.
+  split.
+  - intros.
+    destruct H.
+    + destruct H.
+      destruct H.
+      subst.
+      inversion H0.
+      reflexivity.
+    + destruct H.
+      subst.
+      destruct H0.
+      exists b.
+      constructor.
+  - intros.
+    destruct ob.
+    inversion H; clear H; subst.
+    + apply or_introl.
+      exists b.
+      solve [repeat first [constructor | auto]].
+    + inversion H.
 Qed.
 
 Definition bind {A B : Type} (a : option A) (f : A -> option B) : option B.

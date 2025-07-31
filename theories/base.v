@@ -68,9 +68,9 @@ Definition Classical (A : Type) : Type :=
   {S : A -> Prop | PClassical (exists a, S a)
                     /\ forall x y, S x /\ S y -> x = y}.
 
-Notation "[[ T ]]" := (Classical T).
+Notation "[[| T |]]" := (Classical T).
 
-Definition Creturn {A : Type} (x : A) : [[ A ]].
+Definition Creturn {A : Type} (x : A) : [[| A |]].
   refine (exist _ (fun y => y = x) _).
   split.
   - apply Preturn.
