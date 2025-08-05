@@ -229,15 +229,11 @@ Proof.
   apply Preturn.
   assumption.
 Qed.
-  
-Theorem classicalInd : forall {T : Type} {Q : Classical T -> Prop} (c : Classical T),
-    (forall t, PClassical (Q (Creturn t)))
-    -> PClassical (Q c).
+
+Theorem isReturn {T : Type} (c : Classical T)
+  : [exists t, c = Creturn t].
 Proof.
-  intros.
-  Check ClassicalInd.
-  assert (PClassical (exists x, c = Creturn x)) as fact. {
-    destruct c as [c [nonempty unique]].
+  destruct c as [c [nonempty unique]].
     apply (Pbind nonempty); intros [t Ct].
     apply Preturn.
     exists t.
@@ -252,8 +248,15 @@ Proof.
     - intros.
       subst.
       assumption.
-  }
-  
+Qed.
+
+Theorem classicalInd : forall {T : Type} {Q : Classical T -> Prop} (c : Classical T),
+    (forall t, PClassical (Q (Creturn t)))
+    -> PClassical (Q c).
+Proof.
+  intros.
+  Check ClassicalInd.
+  assert (fact := isReturn c).
   pbind fact.
   specialize fact as [t p].
   subst.
@@ -370,4 +373,49 @@ Proof.
       + exists a.
         split; assumption.
       + assumption.
+Qed.
+
+
+Definition Pif {T : Type} (P : Prop) (b1 b2 : T) : Classical T.
+  refine (exist _ (fun b => P /\ b = b1 \/ ~P /\ b = b2) _).
+  split.
+  - apply (Pbind (Plem P)); intros pornotp.
+    apply Preturn.
+    destruct pornotp.
+    + exists b1.
+      auto.
+    + exists b2.
+      auto.
+  - intros.
+    destruct H.
+    destruct H; destruct H0;
+      destruct H; destruct H0;
+      subst; auto; contradiction.
+Defined.
+
+Theorem PifDef1 {T : Type} (P : Prop) (b1 b2 : T) (p : P) : Pif P b1 b2 = Creturn b1.
+Proof.
+  intros.
+  apply sigEq2.
+  simpl.
+  extensionality b.
+  apply propositional_extensionality.
+  split; intros; repeat destruct H; auto.
+Qed.
+
+Theorem PifDef2 {T : Type} (P : Prop) (b1 b2 : T) (p : ~ P) : Pif P b1 b2 = Creturn b2.
+Proof.
+  intros.
+  apply sigEq2.
+  simpl.
+  extensionality b.
+  apply propositional_extensionality.
+  split; intros.
+  - destruct H.
+    + destruct H.
+      contradiction.
+    + destruct H.
+      assumption.
+  - apply or_intror.
+    auto.
 Qed.

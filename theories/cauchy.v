@@ -1,6 +1,13 @@
 Require Import base.
 Require Import QArith.
 Require Import Qabs.
+Require Import FunctionalExtensionality.
+Require Import Coq.Logic.PropExtensionality.
+
+(* TODO: Maybe I should first implement reals using LEM and choice? Or look at lean's implementation? *)
+
+(* Something to consider: represent cauchy as Q -> Q, which means given epsilon, 
+ rest of outputs should be within epsilon *)
 
 Check Q.
 
@@ -209,3 +216,219 @@ Proof.
   apply Qplus_comm.
 Qed.
 
+(*
+The hard part will be the completeness property.
+See the proof in wikipedia https://en.wikipedia.org/wiki/Construction_of_the_real_numbers#Construction_from_Cauchy_sequences.
+It should be possible, it only requires LEM and I have that.
+Still, the construction creates two new cauchy sequences where each next element needs a new
+invocation of LEM. Will that be possible?
+
+I think it will work.
+Something that will be useful will be to define the propositional if thing.
+I can define the sequence by recursion over the nat input, and at each step I can use a propositional if
+on the statement that the midpoint is an upper bound of the set to determine what happens at the next step.
+*)
+
+(*
+Given a bounded set S, I need to construct a pair of sequences that converge to the lub from
+the top and bottom.
+*)
+
+Fixpoint converging (startTop startBot: CQ) (decide : Q -> Prop) (index :  nat)
+  : CQ * CQ.
+  refine (
+      match index with
+      | O => (startTop , startBot)
+      | S index' =>
+          match (converging startTop startBot decide index') with (ct , cb) =>
+            (
+            Cbind ct (fun t =>
+            _ )
+            ,
+            Cbind cb (fun b =>
+            _ )
+          ) end
+      end
+    ).
+Abort.
+
+(* Output is (top, bottom) *)
+Fixpoint converging' (startTop startBot: CQ) (decide : Q -> Prop) (index :  nat)
+  : Classical (Q * Q).
+  refine (
+      match index with
+      | O => Cbind startTop (fun t =>
+             Cbind startBot (fun b =>
+             Creturn (t , b)))
+      | S index' =>
+          Cbind (converging' startTop startBot decide index') (fun bt =>
+          (*match bt with (b , t) =>*)
+          let t := fst bt in
+          let b := snd bt in
+          let half := (b + t) / 2 in
+          Pif (decide half) (t , half) (half , b)
+          (*end*) )
+      end
+    ).
+Defined.
+
+Theorem separate startTop startBot decide (n : nat)
+        (H : toProp (
+               Cbind startTop (fun t =>
+               Cbind startBot (fun b =>
+               Creturn (b < t)))))
+  :
+  toProp (Cbind (converging' startTop startBot decide n) (fun tb =>
+          let t := fst tb in
+          let b := snd tb in
+          Creturn (b < t))).
+Proof.
+  induction n.
+  -
+    simpl in *.
+    asreturn2 startTop.
+    asreturn2 startBot.
+    repeat rewrite bindDef in *.
+    apply toPropRet1 in H.
+    pbind H.
+    apply toPropRet.
+    apply Preturn.
+    simpl.
+    assumption.
+  - asreturn2 startTop.
+    asreturn2 startBot.
+    simpl in *.
+    asreturn2 (converging' (Creturn x) (Creturn x0) decide n).
+    destruct x1 as [t b].
+    repeat rewrite bindDef in *.
+    simpl in *.
+    apply (Pbind (Plem (decide ((b + t) / 2)))).
+    intros PornotP.
+    destruct PornotP.
+    + rewrite PifDef1; try assumption.
+      rewrite bindDef.
+      apply toPropRet.
+      apply toPropRet1 in H, IHn.
+      pbind H.
+      pbind IHn.
+      apply Preturn.
+      simpl.
+      Search Qlt Qmult.
+      Check Qmult_lt_r.
+      apply (Qmult_lt_r ((b + t) / 2) t 2). {
+        repeat constructor.
+      }
+      field_simplify.
+      eapply Qlt_le_trans.
+      apply Qplus_lt_le_compat.
+      * apply IHn.
+      * apply Qle_refl.
+      * field_simplify.
+        apply Qle_refl.
+    + rewrite PifDef2; try assumption.
+      rewrite bindDef.
+      apply toPropRet.
+      apply toPropRet1 in H, IHn.
+      pbind H.
+      pbind IHn.
+      apply Preturn.
+      simpl.
+      apply (Qmult_lt_r b ((b + t) / 2) 2). {
+        repeat constructor.
+      }
+      field_simplify.
+      Check Qlt_le_trans.
+      apply (Qle_lt_trans _ (b + b)).
+      * field_simplify.
+        apply Qle_refl.
+      * apply Qplus_lt_r.
+        assumption.
+Qed.
+
+Theorem monotonic startTop startBot decide (n m : nat) (H : le n m)
+        (H2 : toProp (
+                 Cbind startTop (fun t =>
+                 Cbind startBot (fun b =>
+                 Creturn (b < t)))))
+  :
+  toProp (Cbind (converging' startTop startBot decide n) (fun tbn =>
+          Cbind (converging' startTop startBot decide m) (fun tbm =>
+          let tn := fst tbn in
+          let bn := snd tbn in
+          let tm := fst tbm in
+          let bm := snd tbm in
+          Creturn (tn >= tm /\ bn <= bm)))).
+Proof.
+  simpl.
+  (* First, we need to show that this is equivalent to n and (n + k) for some k*)
+  Search plus le ex.
+  Check (Nat.le_exists_sub).
+  destruct (Nat.le_exists_sub n m H) as [p [H' _]].
+  subst m.
+  clear H.
+
+
+
+  induction p.
+  - simpl in *.
+    Check @classicalInd.
+    asreturn2 (converging' startTop startBot decide n).
+    destruct x as [b t].
+    repeat rewrite bindDef.
+    apply toPropRet.
+    apply Preturn.
+    split; apply Qle_refl.
+  - asreturn2 (converging' startTop startBot decide n).
+    destruct x as [tn bn].
+    simpl in *.
+    assert (separation := separate startTop startBot decide (p + n)).
+    asreturn2 (converging' startTop startBot decide (p + n)).
+    destruct x as [tpn bpn].
+    repeat rewrite bindDef in *.
+    simpl in *.
+    apply toPropRet1 in IHp.
+    pbind IHp.
+    destruct IHp as [le1 le2].
+
+    asreturn2 startTop.
+    asreturn2 startBot.
+    repeat rewrite bindDef in *.
+    specialize (separation H2).
+    clear H2.
+    
+    apply (Pbind (Plem (decide ((bpn + tpn) / 2)))); intros PornotP.
+    destruct PornotP.
+    + rewrite (PifDef1 _ _ _ H) in *.
+      rewrite bindDef in *.
+      simpl.
+      apply toPropRet2.
+      simpl in separation.
+      apply toPropRet1 in separation.
+      pbind separation.
+      apply Preturn.
+      split; auto.
+      apply (Qle_trans _ ((bpn + bpn) / 2)).
+      * field_simplify.
+        field_simplify.
+        assumption.
+      * Search Qle Qmult.
+        Check Qmult_le_r.
+        
+Abort.
+    
+Definition convergingTop (startTop startBot : CQ) (decide : Q -> Prop) : cauchy.
+  refine {|seq := fun n => Cbind (converging' startTop startBot decide n) (fun pair =>
+                           match pair with (t , b) =>
+                           Creturn t end )|}.
+  intros.
+  simpl.
+  assert ((fun x : Q * Q => let (t, _) := x in Creturn t) = (fun x => Creturn (fst x))). {
+    extensionality x.
+    intros.
+    destruct x.
+    reflexivity.
+  }
+  repeat rewrite H0.
+  repeat rewrite bindDef.
+  Check monadlaw2.
+Abort.
