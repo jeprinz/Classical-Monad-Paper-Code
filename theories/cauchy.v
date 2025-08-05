@@ -127,11 +127,8 @@ Definition Cplus (seq1 seq2 : cauchy) : cauchy.
   asreturn2 (seq seq2 n).
   asreturn2 (seq seq1 m).
   asreturn2 (seq seq2 m).
-  repeat rewrite bindDef in *.
-  apply toPropRet1 in p2, p1.
-  pbind p1.
-  pbind p2.
-  apply toPropRet.
+
+  classical_auto.
   apply Preturn.
 
   assert (x + x0 - (x1 + x2) == (x - x1) + (x0 - x2)). {
@@ -176,13 +173,7 @@ Proof.
   asreturn2 (seq y m).
   asreturn2 (seq x m).
   asreturn2 (seq y n).
-  repeat rewrite bindDef in *.
-  apply toPropRet1 in premise1, premise2, p1, p2.
-  pbind premise1.
-  pbind premise2.
-  pbind p1.
-  pbind p2.
-  apply toPropRet.
+  classical_auto.
   apply Preturn.
 
   assert ((x0 - x1) == (x0 - x2)). {
@@ -210,8 +201,7 @@ Proof.
   asreturn2 (seq x n).
   asreturn2 (seq y n).
 
-  repeat rewrite bindDef in *.
-  apply toPropRet.
+  classical_auto.
   apply Preturn.
   apply Qplus_comm.
 Qed.
@@ -288,10 +278,7 @@ Proof.
     simpl in *.
     asreturn2 startTop.
     asreturn2 startBot.
-    repeat rewrite bindDef in *.
-    apply toPropRet1 in H.
-    pbind H.
-    apply toPropRet.
+    classical_auto.
     apply Preturn.
     simpl.
     assumption.
@@ -300,21 +287,15 @@ Proof.
     simpl in *.
     asreturn2 (converging' (Creturn x) (Creturn x0) decide n).
     destruct x1 as [t b].
-    repeat rewrite bindDef in *.
+    classical_auto.
     simpl in *.
     apply (Pbind (Plem (decide ((b + t) / 2)))).
     intros PornotP.
     destruct PornotP.
     + rewrite PifDef1; try assumption.
-      rewrite bindDef.
-      apply toPropRet.
-      apply toPropRet1 in H, IHn.
-      pbind H.
-      pbind IHn.
+      classical_auto.
       apply Preturn.
       simpl.
-      Search Qlt Qmult.
-      Check Qmult_lt_r.
       apply (Qmult_lt_r ((b + t) / 2) t 2). {
         repeat constructor.
       }
@@ -326,11 +307,7 @@ Proof.
       * field_simplify.
         apply Qle_refl.
     + rewrite PifDef2; try assumption.
-      rewrite bindDef.
-      apply toPropRet.
-      apply toPropRet1 in H, IHn.
-      pbind H.
-      pbind IHn.
+      classical_auto.
       apply Preturn.
       simpl.
       apply (Qmult_lt_r b ((b + t) / 2) 2). {
@@ -361,21 +338,15 @@ Theorem monotonic startTop startBot decide (n m : nat) (H : le n m)
 Proof.
   simpl.
   (* First, we need to show that this is equivalent to n and (n + k) for some k*)
-  Search plus le ex.
-  Check (Nat.le_exists_sub).
   destruct (Nat.le_exists_sub n m H) as [p [H' _]].
   subst m.
   clear H.
 
-
-
   induction p.
   - simpl in *.
-    Check @classicalInd.
     asreturn2 (converging' startTop startBot decide n).
     destruct x as [b t].
-    repeat rewrite bindDef.
-    apply toPropRet.
+    classical_auto.
     apply Preturn.
     split; apply Qle_refl.
   - asreturn2 (converging' startTop startBot decide n).
@@ -384,37 +355,59 @@ Proof.
     assert (separation := separate startTop startBot decide (p + n)).
     asreturn2 (converging' startTop startBot decide (p + n)).
     destruct x as [tpn bpn].
-    repeat rewrite bindDef in *.
+    classical_auto.
     simpl in *.
-    apply toPropRet1 in IHp.
-    pbind IHp.
     destruct IHp as [le1 le2].
 
     asreturn2 startTop.
     asreturn2 startBot.
-    repeat rewrite bindDef in *.
-    specialize (separation H2).
+    classical_auto.
+    specialize (separation (Preturn H2)).
     clear H2.
     
     apply (Pbind (Plem (decide ((bpn + tpn) / 2)))); intros PornotP.
     destruct PornotP.
-    + rewrite (PifDef1 _ _ _ H) in *.
-      rewrite bindDef in *.
+    + rewrite (PifDef1 _ _ _ H).
+      classical_auto.
       simpl.
-      apply toPropRet2.
-      simpl in separation.
-      apply toPropRet1 in separation.
-      pbind separation.
       apply Preturn.
       split; auto.
       apply (Qle_trans _ ((bpn + bpn) / 2)).
       * field_simplify.
         field_simplify.
         assumption.
-      * Search Qle Qmult.
+      * 
         Check Qmult_le_r.
-        
-Abort.
+        apply (Qmult_le_r _ _ 2). {
+          repeat constructor.
+        }
+        field_simplify.
+        apply Qlt_le_weak.
+        apply (Qle_lt_trans _ (bpn + bpn) _).
+        -- field_simplify.
+           apply Qle_refl.
+        -- apply (Qplus_lt_r _ _ (- bpn)).
+           field_simplify.
+           assumption.
+    + rewrite (PifDef2 _ _ _ H).
+      classical_auto.
+      simpl.
+      apply Preturn.
+      split; auto.
+      apply (Qle_trans _ ((tpn + tpn) / 2)).
+      * apply (Qmult_le_r _ _ 2). { repeat constructor. }
+        field_simplify.
+        apply Qlt_le_weak.
+        Check Qplus_le_r.
+        apply (Qplus_lt_r _ _ (- tpn)).
+        field_simplify.
+        assumption.
+      * field_simplify.
+        field_simplify.
+        apply (Qle_trans _ tpn).
+        -- apply Qle_refl.
+        -- assumption.
+Qed.
     
 Definition convergingTop (startTop startBot : CQ) (decide : Q -> Prop) : cauchy.
   refine {|seq := fun n => Cbind (converging' startTop startBot decide n) (fun pair =>

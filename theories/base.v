@@ -330,6 +330,13 @@ Proof.
       split; auto.
 Qed.
 
+Theorem toPropRetEq : forall P, toProp (Creturn P) = PClassical P.
+Proof.
+  intros.
+  apply propositional_extensionality.
+  apply toPropRet.
+Qed.
+
 Theorem toPropRet1 : forall P, toProp (Creturn P) -> PClassical P.
 Proof.
   apply toPropRet.
@@ -419,3 +426,13 @@ Proof.
   - apply or_intror.
     auto.
 Qed.
+
+  Ltac classical_auto :=
+    repeat first [
+        match goal with
+        | H : toProp (Creturn ?rest) |- _ => apply toPropRet1 in H
+        | H : PClassical ?something |- PClassical ?something_else => pbind H
+        end
+      | apply toPropRet2
+      | rewrite bindDef in *
+      | rewrite toPropRetEq in *].
