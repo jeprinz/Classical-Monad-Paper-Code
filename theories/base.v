@@ -427,12 +427,18 @@ Proof.
     auto.
 Qed.
 
-  Ltac classical_auto :=
-    repeat first [
-        match goal with
-        | H : toProp (Creturn ?rest) |- _ => apply toPropRet1 in H
-        | H : PClassical ?something |- PClassical ?something_else => pbind H
-        end
-      | apply toPropRet2
-      | rewrite bindDef in *
-      | rewrite toPropRetEq in *].
+Ltac classical_auto :=
+  repeat first [
+      match goal with
+      | H : toProp (Creturn ?rest) |- _ => apply toPropRet1 in H
+      | H : PClassical ?something |- PClassical ?something_else => pbind H
+      end
+    | apply toPropRet2
+    | rewrite bindDef in *
+    | rewrite toPropRetEq in *].
+
+Theorem classical_consistent : [False] -> False.
+Proof.
+  auto.
+Qed.
+

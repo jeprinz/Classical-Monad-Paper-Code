@@ -23,6 +23,7 @@ Record cauchy : Type :=
 
   }.
 
+(* Maybe I need an [] around the exists N ??? *)
 Definition Ceq (seq1 seq2 : cauchy) : Prop :=
     forall epsilon : Q, epsilon > 0 -> exists N : nat, forall n m : nat, le N n -> le N m ->
      toProp (
@@ -30,9 +31,10 @@ Definition Ceq (seq1 seq2 : cauchy) : Prop :=
      Creturn (Qle (Qabs (x - y)) epsilon)))).
 
 Definition Clt (seq1 seq2 : cauchy) : Prop :=
-  exists N : nat, forall n m : nat, le N n -> le N m ->
-     Cbind (seq seq1 n) (fun x => Cbind (seq seq2 m) (fun y =>
-     Creturn (Qle x  y)))
+  exists epsilon, epsilon > 0 ->
+  exists N : nat, forall n : nat, le N n ->
+     Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
+     Creturn (Qle (Qplus x epsilon) y)))
      = Creturn True.
 
 Require Import PeanoNat.
@@ -142,6 +144,90 @@ Proof.
   apply Preturn.
   apply Qplus_comm.
 Qed.
+
+Theorem Cplus_assoc : forall x y z, Ceq (Cplus x (Cplus y z)) (Cplus (Cplus x y) z).
+Proof.
+  intros.
+  apply exact_equality.
+  intros.
+  simpl.
+  asreturn2 (seq x n).
+  asreturn2 (seq y n).
+  asreturn2 (seq z n).
+  classical_auto.
+  apply Preturn.
+  apply Qplus_assoc.
+Qed.
+Require Import QOrderedType.
+Check Q_as_DT.eq_equiv.
+Check Q_as_OT.lt_strorder.
+Print StrictOrder.
+Check StrictOrder_Transitive.
+Check (StrictOrder_Transitive (Q_as_OT.lt_strorder)).
+
+Print Irreflexive.
+Print Reflexive.
+
+Theorem Clt_antireflexive : forall x y, Ceq x y -> ~ (Clt x y).
+Proof.
+  intros x y Heq Hlt.
+  unfold Ceq, Clt in *.
+Abort.
+
+Theorem not_exists (T : Type) (P : T -> Prop) (E : ~exists t, P t)
+  : forall t, ~(P t).
+Proof.
+  intros t Pt.
+  apply E.
+  exists t.
+  assumption.
+Qed.
+
+
+Theorem C_total_order : forall x y, [Clt x y \/ Ceq x y \/ Clt y x].
+Proof.
+  intros.
+  apply (Pbind (Plem (Clt x y))); intros.
+  destruct H.
+  - apply Preturn.
+    apply or_introl.
+    assumption.
+  - apply (Pbind (Plem (Clt y x))); intros.
+    destruct H0.
+    + apply Preturn.
+      apply or_intror.
+      apply or_intror.
+      assumption.
+    + unfold Clt in H, H0.
+      apply Preturn.
+      apply or_intror.
+      apply or_introl.
+      unfold Ceq.
+      intros.
+      Check (not_exists _ _ H).
+      assert (H' := not_exists _ _ H); simpl in H'; clear H.
+      assert (H0' := not_exists _ _ H0); simpl in H0'; clear H0.
+      specialize (H' epsilon).
+      specialize (H0' epsilon).
+      assert (0 < epsilon = True). {
+        apply propositional_extensionality.
+        split; auto.
+      }
+      rewrite H in *.
+      clear H1 H.
+      assert (forall P, (True -> P) = P). {
+        intros.
+        apply propositional_extensionality.
+        split; auto.
+      }
+      rewrite H in *.
+      clear H.
+      assert (H := not_exists _ _ H'); simpl in H; clear H'.
+      assert (H0 := not_exists _ _ H0'); simpl in H0; clear H0'.
+      specialize (H 0%nat).
+      specialize (H0 0%nat).
+      
+Abort.
 
 (*
 The hard part will be the completeness property.
