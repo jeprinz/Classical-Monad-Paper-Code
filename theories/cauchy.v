@@ -9,62 +9,10 @@ Require Import Coq.Logic.PropExtensionality.
 (* Something to consider: represent cauchy as Q -> Q, which means given epsilon, 
  rest of outputs should be within epsilon *)
 
-Check Q.
-
 (* Classical rational number *)
 
 Definition CQ := Classical Q.
 
-(* Just as an example, define addition and prove its commutative on CQ *)
-
-Search Qplus.
-Locate "==".
-
-Definition CQplus (a b : CQ) : CQ :=
-  Cbind a (fun x =>
-  Cbind b (fun y =>
-  Creturn (x + y))).
-
-(*Definition PCclassicalInj : Classical Prop -> Classical *)
-
-Definition CQeq (a b : CQ) : Prop :=
-  toProp (
-      Cbind a (fun x =>
-      Cbind b (fun y =>
-      Creturn (Qeq x y)))).
-
-(*TODO: There must be a nicer way to put classical in the definition of CQeq or something *)
-Theorem CQplus_comm : forall a b, CQeq (CQplus a b) (CQplus b a).
-Proof.
-  intros.
-  unfold CQeq.
-  asreturn a.
-  asreturn b.
-  unfold CQplus, CQeq.
-  repeat rewrite bindDef.
-  apply toPropRet.
-  apply Preturn.
-  apply Qplus_comm.
-Qed.
-(*goal: define CQeq properly so that the proof of this theorem is just applying some induction
-or something and then just calling Qplus_comm. *)
-
-(*********************************************************************)
-
-Definition cauchy' : Type :=
-  {seq : nat -> Q |
-    forall epsilon : Q, epsilon > 0 -> exists N : nat, forall n : nat, le N n ->
-     Qle (Qabs (seq N - seq n)) epsilon}.
-
-(*
-Definition cauchy : Type :=
-  {seq : nat -> CQ |
-    forall epsilon : Q, epsilon > 0 -> exists N : nat, forall n m : nat, le N n -> le N m ->
-     toProp (
-         Cbind (seq n) (fun x => Cbind (seq m) (fun y =>
-         Creturn (Qle (Qabs (x - y)) epsilon))))
-  }.
-*)
 Record cauchy : Type :=
   { seq : nat -> CQ
   ; property : forall epsilon : Q, epsilon > 0 -> exists N : nat,
@@ -90,12 +38,6 @@ Definition Clt (seq1 seq2 : cauchy) : Prop :=
 Require Import PeanoNat.
 Require Import Nat.
 
-Definition Cplus1 (seq1 seq2 : cauchy) : cauchy.
-  refine {|seq := fun n => CQplus (seq seq1 n) (seq seq2 n)|}.
-  intros.
-Abort.
-
-
 Definition Cplus (seq1 seq2 : cauchy) : cauchy.
   refine {| seq := (fun n => Cbind (seq seq1 n) (fun x =>
                             Cbind (seq seq2 n) (fun y =>
@@ -116,11 +58,6 @@ Definition Cplus (seq1 seq2 : cauchy) : cauchy.
   intros.
   Check ClassicalInd.
 
-
-
-  (*Check (proj2_sig seq1 epsilon H).
-  destruct (proj2_sig seq1 epsilon H) as [N cauchyfact1].
-  specialize (cauchyfact1 n m).*)
   specialize (p1 n m (Nat.max_lub_l _ _ _ H0) (Nat.max_lub_l _ _ _ H1)).
   specialize (p2 n m (Nat.max_lub_r _ _ _ H0) (Nat.max_lub_r _ _ _ H1)).
   asreturn2 (seq seq1 n).
@@ -224,26 +161,8 @@ Given a bounded set S, I need to construct a pair of sequences that converge to 
 the top and bottom.
 *)
 
-Fixpoint converging (startTop startBot: CQ) (decide : Q -> Prop) (index :  nat)
-  : CQ * CQ.
-  refine (
-      match index with
-      | O => (startTop , startBot)
-      | S index' =>
-          match (converging startTop startBot decide index') with (ct , cb) =>
-            (
-            Cbind ct (fun t =>
-            _ )
-            ,
-            Cbind cb (fun b =>
-            _ )
-          ) end
-      end
-    ).
-Abort.
-
 (* Output is (top, bottom) *)
-Fixpoint converging' (startTop startBot: CQ) (decide : Q -> Prop) (index :  nat)
+Fixpoint converging (startTop startBot: CQ) (decide : Q -> Prop) (index :  nat)
   : Classical (Q * Q).
   refine (
       match index with
@@ -251,7 +170,7 @@ Fixpoint converging' (startTop startBot: CQ) (decide : Q -> Prop) (index :  nat)
              Cbind startBot (fun b =>
              Creturn (t , b)))
       | S index' =>
-          Cbind (converging' startTop startBot decide index') (fun bt =>
+          Cbind (converging startTop startBot decide index') (fun bt =>
           (*match bt with (b , t) =>*)
           let t := fst bt in
           let b := snd bt in
@@ -268,7 +187,7 @@ Theorem separate startTop startBot decide (n : nat)
                Cbind startBot (fun b =>
                Creturn (b < t)))))
   :
-  toProp (Cbind (converging' startTop startBot decide n) (fun tb =>
+  toProp (Cbind (converging startTop startBot decide n) (fun tb =>
           let t := fst tb in
           let b := snd tb in
           Creturn (b < t))).
@@ -285,7 +204,7 @@ Proof.
   - asreturn2 startTop.
     asreturn2 startBot.
     simpl in *.
-    asreturn2 (converging' (Creturn x) (Creturn x0) decide n).
+    asreturn2 (converging (Creturn x) (Creturn x0) decide n).
     destruct x1 as [t b].
     classical_auto.
     simpl in *.
@@ -328,8 +247,8 @@ Theorem monotonic startTop startBot decide (n m : nat) (H : le n m)
                  Cbind startBot (fun b =>
                  Creturn (b < t)))))
   :
-  toProp (Cbind (converging' startTop startBot decide n) (fun tbn =>
-          Cbind (converging' startTop startBot decide m) (fun tbm =>
+  toProp (Cbind (converging startTop startBot decide n) (fun tbn =>
+          Cbind (converging startTop startBot decide m) (fun tbm =>
           let tn := fst tbn in
           let bn := snd tbn in
           let tm := fst tbm in
@@ -344,16 +263,16 @@ Proof.
 
   induction p.
   - simpl in *.
-    asreturn2 (converging' startTop startBot decide n).
+    asreturn2 (converging startTop startBot decide n).
     destruct x as [b t].
     classical_auto.
     apply Preturn.
     split; apply Qle_refl.
-  - asreturn2 (converging' startTop startBot decide n).
+  - asreturn2 (converging startTop startBot decide n).
     destruct x as [tn bn].
     simpl in *.
     assert (separation := separate startTop startBot decide (p + n)).
-    asreturn2 (converging' startTop startBot decide (p + n)).
+    asreturn2 (converging startTop startBot decide (p + n)).
     destruct x as [tpn bpn].
     classical_auto.
     simpl in *.
@@ -410,7 +329,7 @@ Proof.
 Qed.
     
 Definition convergingTop (startTop startBot : CQ) (decide : Q -> Prop) : cauchy.
-  refine {|seq := fun n => Cbind (converging' startTop startBot decide n) (fun pair =>
+  refine {|seq := fun n => Cbind (converging startTop startBot decide n) (fun pair =>
                            match pair with (t , b) =>
                            Creturn t end )|}.
   intros.
