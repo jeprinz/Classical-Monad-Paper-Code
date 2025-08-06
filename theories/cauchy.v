@@ -201,6 +201,15 @@ Proof.
       apply or_introl.
       (* The hard part starts here. This is basically antisymmetry, I should
        extract that into its own theorem *)
+
+      (*
+        There are three parts of this proof: dealing with monad stuff, dealing with cauchy sequence
+        stuff, and finally some proofs about rational numbers.
+        Because of the nature of the Classical monad, we need to make some choices about how to
+        instantiate some values before completing the monad stuff. Therefore, there are things like
+        (epsilon / 3) that are interspersed in the monad stuff, even though the details of that
+        value don't become relevant until later in the proof.
+       *)
       
       unfold Clt in H, H0.
       unfold Ceq.
