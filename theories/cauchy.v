@@ -13,29 +13,30 @@ Require Import Coq.Logic.PropExtensionality.
 
 Definition CQ := Classical Q.
 
+(* TODO: Do I need the [] around the exists? *)
 Record cauchy : Type :=
   { seq : nat -> CQ
-  ; property : forall epsilon : Q, epsilon > 0 -> exists N : nat,
+  ; property : forall epsilon : Q, epsilon > 0 -> [exists N : nat,
      forall n m : nat, le N n -> le N m ->
      toProp (
          Cbind (seq n) (fun x => Cbind (seq m) (fun y =>
-         Creturn (Qle (Qabs (x - y)) epsilon))))
+         Creturn (Qle (Qabs (x - y)) epsilon))))]
 
   }.
 
 (* Maybe I need an [] around the exists N ??? *)
 Definition Ceq (seq1 seq2 : cauchy) : Prop :=
-    forall epsilon : Q, epsilon > 0 -> exists N : nat, forall n m : nat, le N n -> le N m ->
+    forall epsilon : Q, epsilon > 0 -> [exists N : nat, forall n m : nat, le N n -> le N m ->
      toProp (
      Cbind (seq seq1 n) (fun x => Cbind (seq seq2 m) (fun y =>
-     Creturn (Qle (Qabs (x - y)) epsilon)))).
+     Creturn (Qle (Qabs (x - y)) epsilon))))].
 
 Definition Clt (seq1 seq2 : cauchy) : Prop :=
   exists epsilon, epsilon > 0 ->
-  exists N : nat, forall n : nat, le N n ->
-     Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
-     Creturn (Qle (Qplus x epsilon) y)))
-     = Creturn True.
+  [exists N : nat, forall n : nat, le N n ->
+     toProp (
+       Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
+       Creturn (Qle (Qplus x epsilon) y))))].
 
 Require Import PeanoNat.
 Require Import Nat.
@@ -52,10 +53,12 @@ Definition Cplus (seq1 seq2 : cauchy) : cauchy.
     - apply Qinv_lt_0_compat.
       repeat constructor.
   }
-  Check (seq seq2).
-  Check (property seq2 halfe Hh).
-  destruct (property seq1 halfe Hh) as [N1 p1].
-  destruct (property seq2 halfe Hh) as [N2 p2].
+  assert (property1 := property seq1 halfe Hh).
+  assert (property2 := property seq2 halfe Hh).
+  classical_auto.
+  specialize property1 as [N1 p1].
+  specialize property2 as [N2 p2].
+  apply Preturn.
   exists (max N1 N2).
   intros.
   Check ClassicalInd.
@@ -94,9 +97,13 @@ Theorem exact_equality (x y : cauchy)
 Proof.
   unfold Ceq.
   intros.
-
-  destruct (property x epsilon H0) as [N1 p1].
-  destruct (property y epsilon H0) as [N2 p2].
+  
+  assert (property1 := property x epsilon H0).
+  assert (property2 := property y epsilon H0).
+  classical_auto.
+  specialize property1 as [N1 p1].
+  specialize property2 as [N2 p2].
+  apply Preturn.
   exists (max N1 N2).
   
   intros.
@@ -198,23 +205,26 @@ Proof.
       apply or_intror.
       apply or_intror.
       assumption.
-    + unfold Clt in H, H0.
-      apply Preturn.
+    + apply Preturn.
       apply or_intror.
       apply or_introl.
+      (* The hard part starts here *)
+      
+      unfold Clt in H, H0.
       unfold Ceq.
       intros.
       Check (not_exists _ _ H).
       assert (H' := not_exists _ _ H); simpl in H'; clear H.
       assert (H0' := not_exists _ _ H0); simpl in H0'; clear H0.
-      specialize (H' epsilon).
+      specialize (H' epsilon). (* TODO: I think I will have to plug in epsilon / 4 or something *)
       specialize (H0' epsilon).
       assert (0 < epsilon = True). {
         apply propositional_extensionality.
         split; auto.
       }
       rewrite H in *.
-      clear H1 H.
+      rewrite <- H in H1.
+      clear H.
       assert (forall P, (True -> P) = P). {
         intros.
         apply propositional_extensionality.
@@ -222,10 +232,54 @@ Proof.
       }
       rewrite H in *.
       clear H.
+      pbind H'.
+      pbind H0'.
       assert (H := not_exists _ _ H'); simpl in H; clear H'.
       assert (H0 := not_exists _ _ H0'); simpl in H0; clear H0'.
       specialize (H 0%nat).
       specialize (H0 0%nat).
+      Check not_forall_2.
+      apply not_forall_2 in H, H0.
+      classical_auto.
+
+      (* ------ *)
+      (* We need to pose some propertiess of x and y specialized to N1, N2, n, and m,
+       so that they are remembered when we do the asreturn2's. *)
+      (* why don't we have epsilon > 0 ??? *)
+      assert (p1 :=property x epsilon H1). (* TODO: should be epsilon / 4 *)
+      pbind p1.
+      assert (p2 := property y epsilon H1).
+      pbind p2.
+      destruct p1 as [N3 p1].
+      destruct p2 as [N4 p2].
+      
+      destruct H0 as [N1 [N1pos seqN1]].
+      destruct H as [N2 [N2pos seqN2]].
+
+      apply Preturn.
+      exists (max (max N1 N2) (max N3 N4)).
+      intros.
+
+      assert (le N3 n) as N3ltn by give_up.
+      assert (le N4 n) as N4ltn by give_up.
+      assert (le N3 m) as N3ltm by give_up.
+      assert (le N4 m) as N4ltm by give_up.
+
+      specialize (p1 n m N3ltn N3ltm).
+      specialize (p2 n m N4ltn N4ltm).
+
+      asreturn2 (seq x N1).
+      asreturn2 (seq y N1).
+      asreturn2 (seq x N2).
+      asreturn2 (seq y N2).
+      asreturn2 (seq x n).
+      asreturn2 (seq x m).
+      asreturn2 (seq y n).
+      asreturn2 (seq y m).
+      classical_auto.
+      
+      apply Preturn.
+      
       
 Abort.
 
@@ -430,3 +484,4 @@ Definition convergingTop (startTop startBot : CQ) (decide : Q -> Prop) : cauchy.
   repeat rewrite bindDef.
   Check monadlaw2.
 Abort.
+ 
