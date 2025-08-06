@@ -32,11 +32,10 @@ Definition Ceq (seq1 seq2 : cauchy) : Prop :=
      Creturn (Qle (Qabs (x - y)) epsilon))))].
 
 Definition Clt (seq1 seq2 : cauchy) : Prop :=
-  exists epsilon, epsilon > 0 ->
   [exists N : nat, forall n : nat, le N n ->
      toProp (
        Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
-       Creturn (Qle (Qplus x epsilon) y))))].
+       Creturn (Qle x y))))].
 
 Require Import PeanoNat.
 Require Import Nat.
@@ -215,54 +214,30 @@ Proof.
       unfold Ceq.
       intros.
 
-      assert (epsilon / 3 > 0) as epspos. {
-        Search Qlt Qmult.
-        Check Qmult_lt_r.
-        apply (Qmult_lt_r _ _ 3). {repeat constructor.}
+      assert (epsilon / 2 > 0) as epspos. {
+        apply (Qmult_lt_r _ _ 2). {repeat constructor.}
         field_simplify.
         assumption.
       }
 
-      assert (propx :=property x (epsilon / 3) epspos). (* TODO: should be epsilon / 4 or something *)
+      assert (propx :=property x (epsilon / 2) epspos).
       pbind propx.
-      assert (propy := property y (epsilon / 3) epspos).
+      assert (propy := property y (epsilon / 2) epspos).
       pbind propy.
       destruct propx as [N3 propx].
       destruct propy as [N4 propy].
+      pbind H.
+      pbind H0.
       
-      Check (not_exists _ _ H).
       assert (H' := not_exists _ _ H); simpl in H'; clear H.
       assert (H0' := not_exists _ _ H0); simpl in H0'; clear H0.
-      specialize (H' (epsilon / 3)).
-      specialize (H0' (epsilon / 3)).
-      assert (0 < (epsilon / 3) = True) as H. {
-        apply propositional_extensionality.
-        split; auto.
-      }
-      rewrite H in *.
-      rewrite <- H in epspos.
-      clear H.
-      assert (forall P, (True -> P) = P). {
-        intros.
-        apply propositional_extensionality.
-        split; auto.
-      }
-      rewrite H in *.
-      clear H.
-      pbind H'.
-      pbind H0'.
-      assert (H := not_exists _ _ H'); simpl in H; clear H'.
-      assert (H0 := not_exists _ _ H0'); simpl in H0; clear H0'.
-      specialize (H (max N3 N4)).
-      specialize (H0 (max N3 N4)).
-      Check not_forall_2.
-      apply not_forall_2 in H, H0.
+      specialize (H' (max N3 N4)).
+      specialize (H0' (max N3 N4)).
+      apply not_forall_2 in H', H0'.
       classical_auto.
       
-      destruct H0 as [N1 [N1le seqN1]].
-      destruct H as [N2 [N2le seqN2]].
-
-      
+      specialize H0' as [N1 [N1le seqN1]].
+      specialize H' as [N2 [N2le seqN2]].
 
       apply Preturn.
       exists (max N3 N4).
@@ -283,14 +258,12 @@ Proof.
       classical_auto.
       apply Preturn.
 
-      Search Qabs Qle.
-      Check Qabs_diff_Qle_condition.
+      (* At this point, the proof has been reduced to statements about rationals.
+       Does the length of the remaining proof reflect on the Rocq stdlib lacking
+       more useful theorems and tactics, or my own lack of knowledge of it? *)
 
-      Check Qabs_wd.
-      Search Qle Qeq.
-      assert (3 * (epsilon / 3) == epsilon) as Heps3 by field.
-      Check Qle_lteq.
-      apply (Qle_trans _ (3 * (epsilon / 3)) _).
+      assert (2 * (epsilon / 2) == epsilon) as Heps3 by field.
+      apply (Qle_trans _ (2 * (epsilon / 2)) _).
       2: {
         apply Qle_lteq.
         apply or_intror.
@@ -302,7 +275,7 @@ Proof.
       apply QOrder.not_ge_lt in seqN2.
       apply Qlt_le_weak in seqN2.
 
-      remember (epsilon / 3) as thirdeps.
+      remember (epsilon / 2) as halfeps.
 
       
       apply Qabs_diff_Qle_condition.      
@@ -311,7 +284,7 @@ Proof.
       apply Qabs_diff_Qle_condition in propx_N1_n as [x0x4 x4x0].
       apply Qabs_diff_Qle_condition in propx_n_N2 as [x4x2 x2x4].
 
-      apply (Qplus_le_l _ _ thirdeps) in x5x1, x0x4, x4x2.
+      apply (Qplus_le_l _ _ halfeps) in x5x1, x0x4, x4x2.
 
       
       
@@ -322,23 +295,19 @@ Proof.
       
 
       split.
-      * apply (Qplus_le_l _ _ (3 * thirdeps)).
+      * apply (Qplus_le_l _ _ (2 * halfeps)).
         field_simplify.
         apply (Qle_trans _ _ _ x4x0).
-        apply (Qplus_le_l _ _ (- thirdeps)).
+        apply (Qplus_le_l _ _ (- halfeps)).
         field_simplify.
         apply (Qle_trans _ _ _ seqN1).
-        apply (Qplus_le_l _ _ (- thirdeps)).
-        field_simplify.
         apply (Qle_trans _ _ _ x1x5).
         field_simplify.
         apply Qle_refl.
       * apply (Qle_trans _ _ _ x5x3).
-        apply (Qplus_le_l _ _ (- thirdeps)).
+        apply (Qplus_le_l _ _ (- halfeps)).
         field_simplify.
         apply (Qle_trans _ _ _ seqN2).
-        apply (Qplus_le_l _ _ (- thirdeps)).
-        field_simplify.
         apply (Qle_trans _ _ _ x2x4).
         field_simplify.
         apply Qle_refl.
