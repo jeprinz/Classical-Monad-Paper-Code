@@ -26,9 +26,9 @@ Record cauchy : Type :=
 
 (* Maybe I need an [] around the exists N ??? *)
 Definition Ceq (seq1 seq2 : cauchy) : Prop :=
-    forall epsilon : Q, epsilon > 0 -> [exists N : nat, forall n m : nat, le N n -> le N m ->
+    forall epsilon : Q, epsilon > 0 -> [exists N : nat, forall n : nat, le N n ->
      toProp (
-     Cbind (seq seq1 n) (fun x => Cbind (seq seq2 m) (fun y =>
+     Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
      Creturn (Qle (Qabs (x - y)) epsilon))))].
 
 Definition Clt (seq1 seq2 : cauchy) : Prop :=
@@ -98,41 +98,32 @@ Proof.
   unfold Ceq.
   intros.
   
-  assert (property1 := property x epsilon H0).
-  assert (property2 := property y epsilon H0).
-  classical_auto.
-  specialize property1 as [N1 p1].
-  specialize property2 as [N2 p2].
   apply Preturn.
-  exists (max N1 N2).
-  
+  exists 0%nat.
   intros.
-  specialize (p1 n m (Nat.max_lub_l _ _ _ H1) (Nat.max_lub_l _ _ _ H2)).
-  specialize (p2 n m (Nat.max_lub_r _ _ _ H1) (Nat.max_lub_r _ _ _ H2)).
-
-  assert (premise1 := H n).
-  assert (premise2 := H m).
-  clear H.
-
-  Check (seq x n).
+  specialize (H n).
   asreturn2 (seq x n).
-  asreturn2 (seq y m).
-  asreturn2 (seq x m).
   asreturn2 (seq y n).
   classical_auto.
   apply Preturn.
-
-  assert ((x0 - x1) == (x0 - x2)). {
+  (* Is this sort of garbage really the easiest way to prove basic rational number stuff in rocq? *)
+  assert (x0 - x1 == 0). {
+    apply (Qplus_inj_r _ _ x1).
     field_simplify.
-    apply Qplus_inj_l.
-    apply Qmult_inj_l.
-    - intros p.
-      inversion p.
-    - apply Qeq_sym.
-      assumption.
+    assumption.
   }
-  rewrite H.
-  assumption.
+  apply Qabs_wd in H2.
+  assert (Qabs 0 == 0). {
+    reflexivity.
+  }
+  Check (Qeq_trans _ _ _ H2 H3).
+  apply (Qle_trans _ 0).
+  - Search Qeq Qle.
+    apply Qle_lteq.
+    apply or_intror.
+    apply (Qeq_trans _ _ _ H2 H3).
+  - apply Qlt_le_weak.
+    assumption.
 Qed.
   
 (* I need to set things up so that this can just trivially work out to Qplus_comm *)
@@ -208,22 +199,39 @@ Proof.
     + apply Preturn.
       apply or_intror.
       apply or_introl.
-      (* The hard part starts here *)
+      (* The hard part starts here. This is basically antisymmetry, I should
+       extract that into its own theorem *)
       
       unfold Clt in H, H0.
       unfold Ceq.
       intros.
+
+      assert (epsilon / 3 > 0) as epspos. {
+        Search Qlt Qmult.
+        Check Qmult_lt_r.
+        apply (Qmult_lt_r _ _ 3). {repeat constructor.}
+        field_simplify.
+        assumption.
+      }
+
+      assert (propx :=property x (epsilon / 3) epspos). (* TODO: should be epsilon / 4 or something *)
+      pbind propx.
+      assert (propy := property y (epsilon / 3) epspos).
+      pbind propy.
+      destruct propx as [N3 propx].
+      destruct propy as [N4 propy].
+      
       Check (not_exists _ _ H).
       assert (H' := not_exists _ _ H); simpl in H'; clear H.
       assert (H0' := not_exists _ _ H0); simpl in H0'; clear H0.
-      specialize (H' epsilon). (* TODO: I think I will have to plug in epsilon / 4 or something *)
-      specialize (H0' epsilon).
-      assert (0 < epsilon = True). {
+      specialize (H' (epsilon / 3)).
+      specialize (H0' (epsilon / 3)).
+      assert (0 < (epsilon / 3) = True) as H. {
         apply propositional_extensionality.
         split; auto.
       }
       rewrite H in *.
-      rewrite <- H in H1.
+      rewrite <- H in epspos.
       clear H.
       assert (forall P, (True -> P) = P). {
         intros.
@@ -236,52 +244,96 @@ Proof.
       pbind H0'.
       assert (H := not_exists _ _ H'); simpl in H; clear H'.
       assert (H0 := not_exists _ _ H0'); simpl in H0; clear H0'.
-      specialize (H 0%nat).
-      specialize (H0 0%nat).
+      specialize (H (max N3 N4)).
+      specialize (H0 (max N3 N4)).
       Check not_forall_2.
       apply not_forall_2 in H, H0.
       classical_auto.
-
-      (* ------ *)
-      (* We need to pose some propertiess of x and y specialized to N1, N2, n, and m,
-       so that they are remembered when we do the asreturn2's. *)
-      (* why don't we have epsilon > 0 ??? *)
-      assert (p1 :=property x epsilon H1). (* TODO: should be epsilon / 4 *)
-      pbind p1.
-      assert (p2 := property y epsilon H1).
-      pbind p2.
-      destruct p1 as [N3 p1].
-      destruct p2 as [N4 p2].
       
-      destruct H0 as [N1 [N1pos seqN1]].
-      destruct H as [N2 [N2pos seqN2]].
+      destruct H0 as [N1 [N1le seqN1]].
+      destruct H as [N2 [N2le seqN2]].
+
+      
 
       apply Preturn.
-      exists (max (max N1 N2) (max N3 N4)).
+      exists (max N3 N4).
       intros.
 
-      assert (le N3 n) as N3ltn by give_up.
-      assert (le N4 n) as N4ltn by give_up.
-      assert (le N3 m) as N3ltm by give_up.
-      assert (le N4 m) as N4ltm by give_up.
-
-      specialize (p1 n m N3ltn N3ltm).
-      specialize (p2 n m N4ltn N4ltm).
+      assert (propx_n_N2 := propx n N2 (Nat.max_lub_l _ _ _ H) (Nat.max_lub_l _ _ _ N2le)).
+      assert (propx_N1_n := propx N1 n (Nat.max_lub_l _ _ _ N1le) (Nat.max_lub_l _ _ _ H)).
+      assert (propy_n_N2 := propy n N1 (Nat.max_lub_r _ _ _ H) (Nat.max_lub_r _ _ _ N1le)).
+      assert (propy_N1_n := propy N2 n (Nat.max_lub_r _ _ _ N2le) (Nat.max_lub_r _ _ _ H)).
+      clear propx propy.
 
       asreturn2 (seq x N1).
       asreturn2 (seq y N1).
       asreturn2 (seq x N2).
       asreturn2 (seq y N2).
       asreturn2 (seq x n).
-      asreturn2 (seq x m).
       asreturn2 (seq y n).
-      asreturn2 (seq y m).
       classical_auto.
-      
       apply Preturn.
+
+      Search Qabs Qle.
+      Check Qabs_diff_Qle_condition.
+
+      Check Qabs_wd.
+      Search Qle Qeq.
+      assert (3 * (epsilon / 3) == epsilon) as Heps3 by field.
+      Check Qle_lteq.
+      apply (Qle_trans _ (3 * (epsilon / 3)) _).
+      2: {
+        apply Qle_lteq.
+        apply or_intror.
+        assumption.
+      }
+
+      apply QOrder.not_ge_lt in seqN1.
+      apply Qlt_le_weak in seqN1.
+      apply QOrder.not_ge_lt in seqN2.
+      apply Qlt_le_weak in seqN2.
+
+      remember (epsilon / 3) as thirdeps.
+
+      
+      apply Qabs_diff_Qle_condition.      
+      apply Qabs_diff_Qle_condition in propy_N1_n as [x3x5 x5x3].
+      apply Qabs_diff_Qle_condition in propy_n_N2 as [x5x1 x1x5].
+      apply Qabs_diff_Qle_condition in propx_N1_n as [x0x4 x4x0].
+      apply Qabs_diff_Qle_condition in propx_n_N2 as [x4x2 x2x4].
+
+      apply (Qplus_le_l _ _ thirdeps) in x5x1, x0x4, x4x2.
+
       
       
-Abort.
+      repeat field_simplify in x5x1.
+      field_simplify in x5x1.
+      field_simplify in x0x4.
+      field_simplify in x4x2.
+      
+
+      split.
+      * apply (Qplus_le_l _ _ (3 * thirdeps)).
+        field_simplify.
+        apply (Qle_trans _ _ _ x4x0).
+        apply (Qplus_le_l _ _ (- thirdeps)).
+        field_simplify.
+        apply (Qle_trans _ _ _ seqN1).
+        apply (Qplus_le_l _ _ (- thirdeps)).
+        field_simplify.
+        apply (Qle_trans _ _ _ x1x5).
+        field_simplify.
+        apply Qle_refl.
+      * apply (Qle_trans _ _ _ x5x3).
+        apply (Qplus_le_l _ _ (- thirdeps)).
+        field_simplify.
+        apply (Qle_trans _ _ _ seqN2).
+        apply (Qplus_le_l _ _ (- thirdeps)).
+        field_simplify.
+        apply (Qle_trans _ _ _ x2x4).
+        field_simplify.
+        apply Qle_refl.
+Qed.
 
 (*
 The hard part will be the completeness property.
