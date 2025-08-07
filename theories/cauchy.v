@@ -779,13 +779,11 @@ the top and bottom.
 *)
 
 (* Output is (top, bottom) *)
-Fixpoint converging (startTop startBot: CQ) (decide : Q -> Prop) (index :  nat)
+Fixpoint converging (startTop startBot: Q) (decide : Q -> Prop) (index :  nat)
   : Classical (Q * Q).
   refine (
       match index with
-      | O => Cbind startTop (fun t =>
-             Cbind startBot (fun b =>
-             Creturn (t , b)))
+      | O => Creturn (startTop , startBot)
       | S index' =>
           Cbind (converging startTop startBot decide index') (fun bt =>
           (*match bt with (b , t) =>*)
@@ -799,10 +797,7 @@ Fixpoint converging (startTop startBot: CQ) (decide : Q -> Prop) (index :  nat)
 Defined.
 
 Theorem separate startTop startBot decide (n : nat)
-        (H : toProp (
-               Cbind startTop (fun t =>
-               Cbind startBot (fun b =>
-               Creturn (b < t)))))
+        (H : startBot < startTop)
   :
   toProp (Cbind (converging startTop startBot decide n) (fun tb =>
           let t := fst tb in
@@ -812,17 +807,13 @@ Proof.
   induction n.
   -
     simpl in *.
-    asreturn2 startTop.
-    asreturn2 startBot.
     classical_auto.
     apply Preturn.
     simpl.
     assumption.
-  - asreturn2 startTop.
-    asreturn2 startBot.
-    simpl in *.
-    asreturn2 (converging (Creturn x) (Creturn x0) decide n).
-    destruct x1 as [t b].
+  - simpl in *.
+    asreturn2 (converging startTop startBot decide n).
+    destruct x as [t b].
     classical_auto.
     simpl in *.
     apply (Pbind (Plem (decide ((b + t) / 2)))).
@@ -859,10 +850,7 @@ Proof.
 Qed.
 
 Theorem monotonic startTop startBot decide (n m : nat) (H : le n m)
-        (H2 : toProp (
-                 Cbind startTop (fun t =>
-                 Cbind startBot (fun b =>
-                 Creturn (b < t)))))
+        (H2 : startBot < startTop)
   :
   toProp (Cbind (converging startTop startBot decide n) (fun tbn =>
           Cbind (converging startTop startBot decide m) (fun tbm =>
@@ -895,10 +883,8 @@ Proof.
     simpl in *.
     destruct IHp as [le1 le2].
 
-    asreturn2 startTop.
-    asreturn2 startBot.
     classical_auto.
-    specialize (separation (Preturn H2)).
+    specialize (separation H2).
     clear H2.
     
     apply (Pbind (Plem (decide ((bpn + tpn) / 2)))); intros PornotP.
@@ -1162,19 +1148,95 @@ Proof.
   Search Qle Qmult.*)
 Abort.
 
-(*
 Search (nat -> Z).
 Check converging.
 Theorem bound_size_converging_intervals :
   forall startTop startBot decide n,
     toProp (
         Cbind (converging startTop startBot decide n) (fun tb =>
-        Cbind startTop (
         let t := fst tb in
         let b := snd tb in
-        Creturn ((t - b) == (startTop - startBot) / (Z.pow 2 (Z.of_nat n))))).
+        Creturn ((t - b) == (startTop - startBot) / (inject_Z (Z.pow 2 (Z.of_nat n)))))).
+Proof.
+  intros.
+  induction n.
+  - simpl.
+    classical_auto.
+    apply Preturn.
+    simpl.
+    field.
+  - classical_auto.
+    simpl in *.
+    asreturn2 (converging startTop startBot decide n).
+    classical_auto.
+    apply (Pbind (Plem (decide ((snd x + fst x) / 2)))); intros yesorno.
+    destruct yesorno.
+    + Check PifDef1.
+      rewrite (PifDef1 _ _ _ H).
+      classical_auto.
+      simpl.
+      apply Preturn.
+      (* seems plausible *)
+      pose (Q1 := inject_Z (2 ^ Z.of_nat n)).
+      assert (~ Q1 == 0) as nonneg1. {
+        unfold Q1.
+        intros p.
+        Search inject_Z eq Qeq.
+        assert (0 == inject_Z 0) as p' by field.
+        apply (Qeq_trans _ _ _ p) in p'.
+        clear p.
+        apply -> inject_Z_injective in p'.
+        Search Z.pow eq 0%Z not.
+        Check Z.pow_nonzero.
+        refine (Z.pow_nonzero _ _ _ _ p').
+        - easy.
+        - apply Zorder.Zle_0_nat.
+      }
+      pose (Q2 := inject_Z (Z.pow_pos 2 (Pos.of_succ_nat n))).
+      assert (~  Q2 == 0) as nonneg. {
+        (* later I basically prove that Q2 = 2 * Q1, so I could do that earlier and use the above proof*)
+        give_up.
+      }
+      field_simplify; auto.
+      apply (Qmult_inj_r _ _ 2). {
+        intros p.
+        inversion p.
+      }
+      field_simplify; auto.
+      apply (Qeq_trans _ _ _ IHn).
+      fold Q1 Q2.
+      apply (Qmult_inj_r _ _ Q1); auto.
+      apply (Qmult_inj_r _ _ Q2); auto.
+      field_simplify; auto.
+      apply (Qeq_trans _ ((startTop - startBot) * Q2)); try field.
+      apply (Qeq_trans _ (2 * (startTop - startBot) * Q1)); try field.
+
+      (* by doing this stuff I can make the thing look like the thing *)
+      unfold Q2.
+      rewrite Z.pow_pos_fold.
+      rewrite Znat.Zpos_P_of_succ_nat.
+      rewrite (Z.pow_succ_r).
+      2: {
+        apply Zorder.Zle_0_nat.
+      }
+      rewrite inject_Z_mult.
+      unfold Q1.
+      field_simplify.
+      apply Qeq_refl.
+    + give_up.
+      (* TODO: This is where I left off. I need to somehow combine the two parts of this,
+       instead of redoing the entire  proof in this case. *)
+Abort.
+
+(*
+Overall, there are many standard library theorems about powers in Z, but not in Q.
+So I need to prove things in terms of power in Z if I want to use the library theorems.
+
+I don't think I need my earlier proof about existence of an integer bound.
+I think I can prove cauchy by useing log2 in Z and this theorem.
 *)
-Definition convergingTop (startTop startBot : CQ) (decide : Q -> Prop) : cauchy.
+
+Definition convergingTop (startTop startBot : Q) (decide : Q -> Prop) : cauchy.
   refine {|seq := fun n => Cbind (converging startTop startBot decide n) (fun pair =>
                            match pair with (t , b) =>
                            Creturn t end )|}.
