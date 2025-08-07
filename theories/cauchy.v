@@ -44,10 +44,12 @@ Definition Clt (seq1 seq2 : cauchy) : Prop :=
   [exists N : nat, forall n : nat, le N n ->
      toProp (
        Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
-       Creturn (Qlt x y))))].
+       Creturn (Qlt x y))))]
+  /\ (~ Ceq seq1 seq2).
 
 Require Import PeanoNat.
 Require Import Nat.
+
 
 Definition Cplus (seq1 seq2 : cauchy) : cauchy.
   refine {| seq := (fun n => Cbind (seq seq1 n) (fun x =>
@@ -222,6 +224,45 @@ Proof.
   intros.
   destruct x.
   destruct Qnum; auto.
+Qed.
+
+Lemma Qle_compat : forall {a b c d : Q},
+    a == c -> b == d
+    -> Qle c d
+    -> Qle a b.
+Proof.
+  intros.
+  apply (Qle_trans _ c).
+  - apply Qeq_le.
+    assumption.
+  - apply (Qle_trans _ d).
+    + assumption.
+    + apply Qeq_le.
+      apply Qeq_sym.
+      assumption.
+Qed.
+
+Theorem Ceq_sym : forall x y, Ceq x y -> Ceq y x.
+Proof.
+  intros.
+  unfold Ceq in *.
+  intros.
+  specialize (H epsilon H0).
+  classical_auto.
+  specialize H as [N H].
+  apply Preturn.
+  exists N.
+  intros.
+  specialize (H n H1).
+  asreturn2 (seq x n).
+  asreturn2 (seq y n).
+  classical_auto.
+  apply Preturn.
+  Search Qle Qeq.
+  Check Qabs_wd.
+  Search Qabs Qminus.
+  rewrite Qabs_Qminus.
+  assumption.
 Qed.
   
 Definition Cmult (seq1 seq2 : cauchy) : cauchy.
@@ -547,10 +588,12 @@ Proof.
   intros x y H1 H2.
   unfold Clt in H1, H2.
   apply classical_consistent.
+  specialize H1 as [H1 Neq1].
+  specialize H2 as [H2 Neq2].
   classical_auto.
   specialize H1 as [N1 H1].
   specialize H2 as [N2 H2].
-  Check Nat.max_lub_l.
+
   specialize (H1 (max N1 N2) (Nat.max_lub_l _ _ _ (Nat.le_refl _))).
   specialize (H2 (max N1 N2) (Nat.max_lub_r _ _ _ (Nat.le_refl _))).
   asreturn2 (seq x (max N1 N2)).
@@ -570,7 +613,7 @@ Abort.
   
 Theorem anti_refl : forall x y, ~ Clt x y -> ~Clt y x -> Ceq x y.
 Proof.
-  intros.
+  intros x y H H0.
   (*
         There are three parts of this proof: dealing with monad stuff, dealing with cauchy sequence
         stuff, and finally some proofs about rational numbers.
@@ -583,6 +626,22 @@ Proof.
   unfold Ceq.
   intros.
 
+  apply not_and in H, H0.
+  classical_auto.
+
+  (* deal with the easy cases, where we just get a proof that (Ceq x y) *)
+  destruct H0.
+  2: {
+    pbind H0.
+    apply Ceq_sym in H0.
+    exact (H0 epsilon H1).
+  }
+  destruct H.
+  2: {
+    pbind H.
+    exact (H epsilon H1).
+  }
+  
   assert (epsilon / 2 > 0) as epspos. {
     apply (Qmult_lt_r _ _ 2). {repeat constructor.}
     field_simplify.

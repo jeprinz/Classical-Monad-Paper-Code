@@ -602,3 +602,16 @@ Proof.
   apply E.
   eauto.
 Qed.
+
+Theorem not_and (P Q : Prop)
+        (H : ~ (P /\ Q))
+  : [~P \/ ~Q].
+Proof.
+  apply (Pbind (Plem P)); intros PornotP.
+  destruct PornotP; apply Preturn.
+  - apply or_intror.
+    intros q.
+    apply H; auto.
+  - apply or_introl.
+    assumption.
+Qed.
