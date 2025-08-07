@@ -35,7 +35,7 @@ Definition Clt (seq1 seq2 : cauchy) : Prop :=
   [exists N : nat, forall n : nat, le N n ->
      toProp (
        Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
-       Creturn (Qle x y))))].
+       Creturn (Qlt x y))))].
 
 Require Import PeanoNat.
 Require Import Nat.
@@ -272,10 +272,9 @@ Proof.
     assumption.
   }
 
-  apply QOrder.not_ge_lt in seqN1.
-  apply Qlt_le_weak in seqN1.
-  apply QOrder.not_ge_lt in seqN2.
-  apply Qlt_le_weak in seqN2.
+
+  apply QOrder.not_gt_le in seqN1.
+  apply QOrder.not_gt_le in seqN2.
 
   remember (epsilon / 2) as halfeps.
 
