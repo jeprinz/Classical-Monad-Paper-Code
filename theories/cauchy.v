@@ -180,6 +180,140 @@ Proof.
   assumption.
 Qed.
 
+(* (Ceq x y) \/ (Clt x y) = ~ (Clt y x) *)
+
+Theorem anti_refl_2 : forall x y, Clt x y -> Clt y x -> False.
+Proof.
+  intros x y H1 H2.
+  unfold Clt in H1, H2.
+  apply classical_consistent.
+  classical_auto.
+  specialize H1 as [N1 H1].
+  specialize H2 as [N2 H2].
+  Check Nat.max_lub_l.
+  specialize (H1 (max N1 N2) (Nat.max_lub_l _ _ _ (Nat.le_refl _))).
+  specialize (H2 (max N1 N2) (Nat.max_lub_r _ _ _ (Nat.le_refl _))).
+  asreturn2 (seq x (max N1 N2)).
+  asreturn2 (seq y (max N1 N2)).
+  classical_auto.
+  apply Preturn.
+Abort.
+  
+  
+
+Theorem anti_refl : forall x y, ~ Clt x y -> ~Clt y x -> Ceq x y.
+Proof.
+  intros.
+  (*
+        There are three parts of this proof: dealing with monad stuff, dealing with cauchy sequence
+        stuff, and finally some proofs about rational numbers.
+        Because of the nature of the Classical monad, we need to make some choices about how to
+        instantiate some values before completing the monad stuff. Therefore, there are things like
+        (epsilon / 3) that are interspersed in the monad stuff, even though the details of that
+        value don't become relevant until later in the proof.
+   *)
+  unfold Clt in H, H0.
+  unfold Ceq.
+  intros.
+
+  assert (epsilon / 2 > 0) as epspos. {
+    apply (Qmult_lt_r _ _ 2). {repeat constructor.}
+    field_simplify.
+    assumption.
+  }
+
+  assert (propx :=property x (epsilon / 2) epspos).
+  pbind propx.
+  assert (propy := property y (epsilon / 2) epspos).
+  pbind propy.
+  destruct propx as [N3 propx].
+  destruct propy as [N4 propy].
+  pbind H.
+  pbind H0.
+  
+  assert (H' := not_exists _ _ H); simpl in H'; clear H.
+  assert (H0' := not_exists _ _ H0); simpl in H0'; clear H0.
+  specialize (H' (max N3 N4)).
+  specialize (H0' (max N3 N4)).
+  apply not_forall_2 in H', H0'.
+  classical_auto.
+  
+  specialize H0' as [N1 [N1le seqN1]].
+  specialize H' as [N2 [N2le seqN2]].
+
+  apply Preturn.
+  exists (max N3 N4).
+  intros.
+
+  assert (propx_n_N2 := propx n N2 (Nat.max_lub_l _ _ _ H) (Nat.max_lub_l _ _ _ N2le)).
+  assert (propx_N1_n := propx N1 n (Nat.max_lub_l _ _ _ N1le) (Nat.max_lub_l _ _ _ H)).
+  assert (propy_n_N2 := propy n N1 (Nat.max_lub_r _ _ _ H) (Nat.max_lub_r _ _ _ N1le)).
+  assert (propy_N1_n := propy N2 n (Nat.max_lub_r _ _ _ N2le) (Nat.max_lub_r _ _ _ H)).
+  clear propx propy.
+
+  asreturn2 (seq x N1).
+  asreturn2 (seq y N1).
+  asreturn2 (seq x N2).
+  asreturn2 (seq y N2).
+  asreturn2 (seq x n).
+  asreturn2 (seq y n).
+  classical_auto.
+  apply Preturn.
+
+  (* At this point, the proof has been reduced to statements about rationals.
+       Does the length of the remaining proof reflect on the Rocq stdlib lacking
+       more useful theorems and tactics, or my own lack of knowledge of it? *)
+
+  assert (2 * (epsilon / 2) == epsilon) as Heps3 by field.
+  apply (Qle_trans _ (2 * (epsilon / 2)) _).
+  2: {
+    apply Qle_lteq.
+    apply or_intror.
+    assumption.
+  }
+
+  apply QOrder.not_ge_lt in seqN1.
+  apply Qlt_le_weak in seqN1.
+  apply QOrder.not_ge_lt in seqN2.
+  apply Qlt_le_weak in seqN2.
+
+  remember (epsilon / 2) as halfeps.
+
+  
+  apply Qabs_diff_Qle_condition.      
+  apply Qabs_diff_Qle_condition in propy_N1_n as [x3x5 x5x3].
+  apply Qabs_diff_Qle_condition in propy_n_N2 as [x5x1 x1x5].
+  apply Qabs_diff_Qle_condition in propx_N1_n as [x0x4 x4x0].
+  apply Qabs_diff_Qle_condition in propx_n_N2 as [x4x2 x2x4].
+
+  apply (Qplus_le_l _ _ halfeps) in x5x1, x0x4, x4x2.
+
+  
+  
+  repeat field_simplify in x5x1.
+  field_simplify in x5x1.
+  field_simplify in x0x4.
+  field_simplify in x4x2.
+  
+
+  split.
+  * apply (Qplus_le_l _ _ (2 * halfeps)).
+    field_simplify.
+    apply (Qle_trans _ _ _ x4x0).
+    apply (Qplus_le_l _ _ (- halfeps)).
+    field_simplify.
+    apply (Qle_trans _ _ _ seqN1).
+    apply (Qle_trans _ _ _ x1x5).
+    field_simplify.
+    apply Qle_refl.
+  * apply (Qle_trans _ _ _ x5x3).
+    apply (Qplus_le_l _ _ (- halfeps)).
+    field_simplify.
+    apply (Qle_trans _ _ _ seqN2).
+    apply (Qle_trans _ _ _ x2x4).
+    field_simplify.
+    apply Qle_refl.
+Qed.
 
 Theorem C_total_order : forall x y, [Clt x y \/ Ceq x y \/ Clt y x].
 Proof.
@@ -198,119 +332,7 @@ Proof.
     + apply Preturn.
       apply or_intror.
       apply or_introl.
-      (* The hard part starts here. This is basically antisymmetry, I should
-       extract that into its own theorem *)
-
-      (*
-        There are three parts of this proof: dealing with monad stuff, dealing with cauchy sequence
-        stuff, and finally some proofs about rational numbers.
-        Because of the nature of the Classical monad, we need to make some choices about how to
-        instantiate some values before completing the monad stuff. Therefore, there are things like
-        (epsilon / 3) that are interspersed in the monad stuff, even though the details of that
-        value don't become relevant until later in the proof.
-       *)
-      
-      unfold Clt in H, H0.
-      unfold Ceq.
-      intros.
-
-      assert (epsilon / 2 > 0) as epspos. {
-        apply (Qmult_lt_r _ _ 2). {repeat constructor.}
-        field_simplify.
-        assumption.
-      }
-
-      assert (propx :=property x (epsilon / 2) epspos).
-      pbind propx.
-      assert (propy := property y (epsilon / 2) epspos).
-      pbind propy.
-      destruct propx as [N3 propx].
-      destruct propy as [N4 propy].
-      pbind H.
-      pbind H0.
-      
-      assert (H' := not_exists _ _ H); simpl in H'; clear H.
-      assert (H0' := not_exists _ _ H0); simpl in H0'; clear H0.
-      specialize (H' (max N3 N4)).
-      specialize (H0' (max N3 N4)).
-      apply not_forall_2 in H', H0'.
-      classical_auto.
-      
-      specialize H0' as [N1 [N1le seqN1]].
-      specialize H' as [N2 [N2le seqN2]].
-
-      apply Preturn.
-      exists (max N3 N4).
-      intros.
-
-      assert (propx_n_N2 := propx n N2 (Nat.max_lub_l _ _ _ H) (Nat.max_lub_l _ _ _ N2le)).
-      assert (propx_N1_n := propx N1 n (Nat.max_lub_l _ _ _ N1le) (Nat.max_lub_l _ _ _ H)).
-      assert (propy_n_N2 := propy n N1 (Nat.max_lub_r _ _ _ H) (Nat.max_lub_r _ _ _ N1le)).
-      assert (propy_N1_n := propy N2 n (Nat.max_lub_r _ _ _ N2le) (Nat.max_lub_r _ _ _ H)).
-      clear propx propy.
-
-      asreturn2 (seq x N1).
-      asreturn2 (seq y N1).
-      asreturn2 (seq x N2).
-      asreturn2 (seq y N2).
-      asreturn2 (seq x n).
-      asreturn2 (seq y n).
-      classical_auto.
-      apply Preturn.
-
-      (* At this point, the proof has been reduced to statements about rationals.
-       Does the length of the remaining proof reflect on the Rocq stdlib lacking
-       more useful theorems and tactics, or my own lack of knowledge of it? *)
-
-      assert (2 * (epsilon / 2) == epsilon) as Heps3 by field.
-      apply (Qle_trans _ (2 * (epsilon / 2)) _).
-      2: {
-        apply Qle_lteq.
-        apply or_intror.
-        assumption.
-      }
-
-      apply QOrder.not_ge_lt in seqN1.
-      apply Qlt_le_weak in seqN1.
-      apply QOrder.not_ge_lt in seqN2.
-      apply Qlt_le_weak in seqN2.
-
-      remember (epsilon / 2) as halfeps.
-
-      
-      apply Qabs_diff_Qle_condition.      
-      apply Qabs_diff_Qle_condition in propy_N1_n as [x3x5 x5x3].
-      apply Qabs_diff_Qle_condition in propy_n_N2 as [x5x1 x1x5].
-      apply Qabs_diff_Qle_condition in propx_N1_n as [x0x4 x4x0].
-      apply Qabs_diff_Qle_condition in propx_n_N2 as [x4x2 x2x4].
-
-      apply (Qplus_le_l _ _ halfeps) in x5x1, x0x4, x4x2.
-
-      
-      
-      repeat field_simplify in x5x1.
-      field_simplify in x5x1.
-      field_simplify in x0x4.
-      field_simplify in x4x2.
-      
-
-      split.
-      * apply (Qplus_le_l _ _ (2 * halfeps)).
-        field_simplify.
-        apply (Qle_trans _ _ _ x4x0).
-        apply (Qplus_le_l _ _ (- halfeps)).
-        field_simplify.
-        apply (Qle_trans _ _ _ seqN1).
-        apply (Qle_trans _ _ _ x1x5).
-        field_simplify.
-        apply Qle_refl.
-      * apply (Qle_trans _ _ _ x5x3).
-        apply (Qplus_le_l _ _ (- halfeps)).
-        field_simplify.
-        apply (Qle_trans _ _ _ seqN2).
-        apply (Qle_trans _ _ _ x2x4).
-        field_simplify.
-        apply Qle_refl.
+      apply anti_refl; auto.
 Qed.
 
 (*
@@ -497,7 +519,97 @@ Proof.
         -- apply Qle_refl.
         -- assumption.
 Qed.
+
+(*
+To prove that the sequence is cauchy, I need to show
+- for any epsilon>0, (startTop - startBot) halved some number of times is < epsilon
+- all subsequent elements of the sequence after that point are within epsilon
+ *)
+Search Q Z.
+Print Qpower.
+Check Qpower_positive.
+Print positive.
+Search Qpower_positive.
+Check pow.
+Search pow.
+Search (Z -> Q).
+Search "pow" Z.
+Search Z.pow ex Z.le.
+Check Z.log2_spec_alt.
+Fixpoint half_n_times (n : nat) (q : Q) : Q :=
+  match n with
+  | O => q
+  | S n' => (half_n_times n' q) / 2
+  end.
+
+(*
+Maybe I can do something like:
+- assume w.l.o.g. that numerator is 1
+- halving doubles the denomenator - this at least adds 1 to the denominator each time
+- so denominator after n doubles is >= n
+ *)
+
+Require Import PosDef.
+
+
+Fixpoint double_n_times (n : nat) (z : positive) : positive :=
+  match n with
+  | O => z
+  | S n' => (double_n_times n' z) * 2
+  end.
+
+Lemma half_double_relation (n : nat) (q : Q) :
+  Qmake (Qnum (half_n_times n q))(Qden (half_n_times n q))
+  = Qmake (Qnum q) (double_n_times n (Qden q)).
+Proof.
+  induction n.
+  - simpl.
+    reflexivity.
+  - simpl.
+    inversion IHn; clear IHn.
+    destruct (half_n_times n q).
+    simpl in *.
+    apply f_equal2.
+    + ring_simplify.
+      reflexivity.
+    + reflexivity.
+Qed.
+
+Lemma some_n_big_enough (z1 z2 : positive) :
+  exists n, Pos.gt (double_n_times n z1) z2.
+Proof.
+  Search positive nat.
+
+  remember (Pos.to_nat (z2 - z1)) as times.
+  exists times.
+  generalize dependent z1.
+  generalize dependent z2.
+  induction times.
+  - intros.
+    simpl.
+    assert (is_pos := Pos2Nat.is_pos (z2 - z1)).
+    rewrite Heqtimes in is_pos.
+    apply Nat.lt_irrefl in is_pos.
+    contradiction.
+  - intros.
+    Search Pos.of_nat S.
+Abort.
     
+Theorem test_something_like_this (q : Q) (eps : Q) :
+  exists n, half_n_times n q < eps.
+Proof.
+  Search Q Z.
+Abort.
+
+Theorem test_something_like_this_2 (q : Q) (eps : Q) :
+  ~ forall n, half_n_times n q > eps.
+Proof.
+  intros H.
+  Print Q.
+  Check Qnum.
+Abort.
+
+  
 Definition convergingTop (startTop startBot : CQ) (decide : Q -> Prop) : cauchy.
   refine {|seq := fun n => Cbind (converging startTop startBot decide n) (fun pair =>
                            match pair with (t , b) =>
