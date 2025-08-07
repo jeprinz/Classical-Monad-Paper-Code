@@ -31,6 +31,15 @@ Definition Ceq (seq1 seq2 : cauchy) : Prop :=
      Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
      Creturn (Qle (Qabs (x - y)) epsilon))))].
 
+(* TODO: I don't think that this definition is correct.
+ There can be two sequences both converging to the same number but one is always greater
+ than the other.
+ There are a few ways to fix this:
+ 1) postulate that there exists epsilon > 0, and x is < y by at least epsilon
+ 2) add a disjunction saying "or Ceq seq1 seq2" and replace < with <=,
+    and make this a definintion of <=. Then, the definition < would be this, but not equal.
+ 3) add a conjunction saying they are not equal, and this is a definition of <.
+*)
 Definition Clt (seq1 seq2 : cauchy) : Prop :=
   [exists N : nat, forall n : nat, le N n ->
      toProp (
@@ -86,6 +95,83 @@ Definition Cplus (seq1 seq2 : cauchy) : cauchy.
   apply Qabs_triangle.
   apply Qplus_le_compat; assumption.
 Defined.
+
+(*
+Fixpoint max_up_to (f : nat -> CQ) (n : nat) : CQ.
+  refine (match n with
+          | O => Creturn 0
+          | S n' => Cbind (f n) (fun fn =>
+                    Cbind (max_up_to f n') (fun rec =>
+                    Creturn (Qmax fn rec)))
+          end).
+Abort.
+
+Theorem cauchy_upper_bound (c : cauchy) :
+  [ exists bound : Q,
+    forall n,
+      toProp (
+          Cbind (seq c n) (fun x => Creturn (Qlt x bound)))].
+Proof.
+  assert (Qlt 0 1) as fact by repeat constructor.
+  assert (prop := property c 1 fact).
+  classical_auto.
+  specialize prop as [N prop].
+  specialize (prop N).
+  asreturn2 (seq c N).
+  (* why can't I rewrite under the forall? *)
+  Fail rewrite bindDef in prop.
+  assert (forall m, (N <= m)%nat ->
+                    toProp (Cbind (seq c m) (fun y => Creturn (Qabs (x - y) <= 1)))) as prop'. {
+    intros.
+    specialize (prop m (Nat.le_refl N) H).
+    asreturn2 (seq c m).
+    classical_auto.
+    apply Preturn.
+    assumption.
+  }
+  clear prop.
+  (* I need to take the maximum of all elements less than N *)
+  
+  
+Abort.
+*)
+
+Definition Cmult (seq1 seq2 : cauchy) : cauchy.
+  refine {| seq := (fun n => Cbind (seq seq1 n) (fun x =>
+                            Cbind (seq seq2 n) (fun y =>
+                            Creturn (Qmult x y))))|}.
+  intros.
+
+  pose (halfe := Qdiv epsilon 2).
+  assert (halfe > 0) as Hh. {
+    apply Qmult_lt_0_compat.
+    - assumption.
+    - apply Qinv_lt_0_compat.
+      repeat constructor.
+  }
+
+  assert (property1 := property seq1 halfe Hh).
+  assert (property2 := property seq2 halfe Hh).
+  classical_auto.
+  specialize property1 as [N1 p1].
+  specialize property2 as [N2 p2].
+  apply Preturn.
+  exists (max N1 N2).
+  intros.
+  
+  specialize (p1 n m (Nat.max_lub_l _ _ _ H0) (Nat.max_lub_l _ _ _ H1)).
+  specialize (p2 n m (Nat.max_lub_r _ _ _ H0) (Nat.max_lub_r _ _ _ H1)).
+  asreturn2 (seq seq1 n).
+  asreturn2 (seq seq2 n).
+  asreturn2 (seq seq1 m).
+  asreturn2 (seq seq2 m).
+
+  classical_auto.
+  apply Preturn.
+
+  Search "triangle".
+  
+Abort.
 
 Theorem exact_equality (x y : cauchy)
         (H : forall n, toProp (
@@ -182,7 +268,7 @@ Qed.
 
 (* (Ceq x y) \/ (Clt x y) = ~ (Clt y x) *)
 
-Theorem anti_refl_2 : forall x y, Clt x y -> Clt y x -> False.
+Theorem anti_sym : forall x y, Clt x y -> Clt y x -> False.
 Proof.
   intros x y H1 H2.
   unfold Clt in H1, H2.
@@ -197,10 +283,17 @@ Proof.
   asreturn2 (seq y (max N1 N2)).
   classical_auto.
   apply Preturn.
+  Search Qlt not.
+  apply (Qlt_trans _ _ _ H1) in H2.
+  apply (QOrder.lt_irrefl H2).
+Qed.
+
+Theorem anti_refl_2 : forall x y, Clt x y -> Ceq x y -> False.
+Proof.
+  intros x y H1 H2.
+  unfold Clt, Ceq in *.
 Abort.
   
-  
-
 Theorem anti_refl : forall x y, ~ Clt x y -> ~Clt y x -> Ceq x y.
 Proof.
   intros.
