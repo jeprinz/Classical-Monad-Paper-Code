@@ -136,31 +136,144 @@ Proof.
 Abort.
 *)
 
+Lemma QabsPlus1 : forall x, 0 < (Qabs x) + 1.
+Proof.
+  intros.
+  apply (Qle_lt_trans _ (Qabs x)).
+  - apply Qabs_nonneg.
+  - Search Qplus Qlt.
+     apply (Qplus_lt_l _ _ (- (Qabs x))).
+     field_simplify.
+     repeat constructor.
+Qed.
+      
+Lemma Qeq_le : forall {x y}, Qeq x y -> Qle x y.
+Proof.
+  intros.
+  apply Qle_lteq.
+  apply or_intror.
+  assumption.
+Qed.
+
+Lemma Q_le_sqrt : forall q : Q, q > 0 -> [exists r, r * r <= q].
+Proof.
+
+  intros.
+  apply (Pbind (Plem (Qle q 1))); intros qle1.
+  destruct qle1.
+  - apply Preturn.
+    exists q.
+    apply (Qle_trans _ (1 * q)).
+    + apply Qlt_le_weak in H.
+      apply Qmult_le_compat_r; assumption.
+    + field_simplify.
+      apply Qle_refl.
+  - apply Preturn.
+    exists 1.
+    field_simplify.
+    apply Qnot_le_lt in H0.
+    apply Qlt_le_weak.
+    assumption.
+Qed.      
+
 Definition Cmult (seq1 seq2 : cauchy) : cauchy.
   refine {| seq := (fun n => Cbind (seq seq1 n) (fun x =>
                             Cbind (seq seq2 n) (fun y =>
                             Creturn (Qmult x y))))|}.
   intros.
 
-  pose (halfe := Qdiv epsilon 2).
-  assert (halfe > 0) as Hh. {
+  assert (Qlt 0 1) as fact by repeat constructor.
+  assert (bound1 := property seq1 1 fact).
+  assert (bound2 := property seq2 1 fact).
+  classical_auto.
+  specialize bound1 as [boundN1 bound1fact].
+  specialize bound2 as [boundN2 bound2fact].
+  specialize (bound1fact boundN1).
+  specialize (bound2fact boundN2).
+  asreturn2 (seq seq1 boundN1).
+  asreturn2 (seq seq2 boundN2).
+  rename x0 into y. (* These bounds are within 1 of the value of seq1 and seq2*)
+  pose (bound1 := (Qabs x) + 1).
+  pose (bound2 := (Qabs y) + 1).
+
+  (*assert (forall m, le boundN1 m ->
+                    toProp (Cbind (seq seq1 m) (fun y => Creturn (Qabs (1 - y) <= 1)))) as bound1'. {*)
+  assert (forall m, le boundN1 m ->
+                    toProp (Cbind (seq seq1 m) (fun y => Creturn (Qabs y <= bound1))))
+    as bound1fact'. {
+    intros.
+    specialize (bound1fact m (Nat.le_refl _) H0).
+    asreturn2 (seq seq1 m).
+    classical_auto.
+    apply Preturn.
+    unfold bound1.
+    apply (Qplus_le_l _ _ (- (Qabs x))).
+    field_simplify.
+    apply (Qle_trans _ _ _ (Qeq_le (Qabs_opp _))) in bound1fact.
+    apply (Qle_trans _ (Qabs (x0 - x))).
+    - apply (Qabs_triangle_reverse x0 x).
+    - eapply (Qle_trans _ _ _ _ bound1fact).
+      Unshelve.
+      apply Qeq_le.
+      apply Qabs_wd.
+      field.
+  }
+  clear bound1fact.
+
+  assert (forall m, le boundN2 m ->
+                    toProp (Cbind (seq seq2 m) (fun y => Creturn (Qabs y <= bound2))))
+    as bound2fact'. {
+    intros.
+    specialize (bound2fact m (Nat.le_refl _) H0).
+    asreturn2 (seq seq2 m).
+    classical_auto.
+    apply Preturn.
+    unfold bound2.
+    apply (Qplus_le_l _ _ (- (Qabs y))).
+    field_simplify.
+    apply (Qle_trans _ _ _ (Qeq_le (Qabs_opp _))) in bound2fact.
+    apply (Qle_trans _ (Qabs (x0 - y))).
+    - apply (Qabs_triangle_reverse x0 y).
+    - eapply (Qle_trans _ _ _ _ bound2fact).
+      Unshelve.
+      apply Qeq_le.
+      apply Qabs_wd.
+      field.
+  }
+  clear bound2fact.
+  
+  pose (epsilon' :=  epsilon / (2 * bound1 * bound2)).
+  assert (epsilon' > 0) as Hh. {
     apply Qmult_lt_0_compat.
     - assumption.
     - apply Qinv_lt_0_compat.
       repeat constructor.
+      unfold bound1, bound2.
+      Search Qlt 0 Qmult.
+      apply Qmult_lt_0_compat.
+      + apply Qmult_lt_0_compat.
+        * repeat constructor.
+        * apply QabsPlus1.
+      + apply QabsPlus1.
   }
 
-  assert (property1 := property seq1 halfe Hh).
-  assert (property2 := property seq2 halfe Hh).
+  assert (property1 := property seq1 epsilon' Hh).
+  assert (property2 := property seq2 epsilon' Hh).
   classical_auto.
   specialize property1 as [N1 p1].
   specialize property2 as [N2 p2].
   apply Preturn.
-  exists (max N1 N2).
+  exists (max (max boundN1 boundN2) (max N1 N2)).
   intros.
   
-  specialize (p1 n m (Nat.max_lub_l _ _ _ H0) (Nat.max_lub_l _ _ _ H1)).
-  specialize (p2 n m (Nat.max_lub_r _ _ _ H0) (Nat.max_lub_r _ _ _ H1)).
+  specialize (p1 n m (Nat.max_lub_l _ _ _ (Nat.max_lub_r _ _ _ H0))
+                 (Nat.max_lub_l _ _ _ (Nat.max_lub_r _ _ _ H1))).
+  specialize (p2 n m (Nat.max_lub_r _ _ _ (Nat.max_lub_r _ _ _ H0))
+                 (Nat.max_lub_r _ _ _ (Nat.max_lub_r _ _ _ H1))).
+  assert (bound1fact_1 := bound1fact' n (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ H0))).
+  (*assert (bound1fact_2 := bound1fact' m (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ H1))).*)
+  assert (bound2fact_1 := bound2fact' n (Nat.max_lub_r _ _ _ (Nat.max_lub_l _ _ _ H0))).
+  (*assert (bound2fact_2 := bound2fact' m (Nat.max_lub_r _ _ _ (Nat.max_lub_l _ _ _ H1))).*)
   asreturn2 (seq seq1 n).
   asreturn2 (seq seq2 n).
   asreturn2 (seq seq1 m).
@@ -169,6 +282,26 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
   classical_auto.
   apply Preturn.
 
+  (* Now the rational number proof part *)
+  
+  apply (Qle_trans _ (Qabs (x0 * x1 - (x0 + epsilon') * (x1 + epsilon')))).
+  - 
+    
+    give_up.
+  - assert  (x0 * x1 - (x0 + epsilon') * (x1 + epsilon')
+             == - x1*epsilon' - x0 * epsilon' - epsilon' * epsilon') as eq. {
+      field.
+    }
+    eapply Qle_trans.
+    + apply Qle_lteq.
+      apply or_intror.
+      apply Qabs_wd.
+      apply eq.
+    + unfold epsilon'.
+      
+      
+      
+      
   Search "triangle".
   
 Abort.
