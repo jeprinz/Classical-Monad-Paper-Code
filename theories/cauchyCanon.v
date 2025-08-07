@@ -1,35 +1,36 @@
-Require Import base.
-Require Import QArith.
+
+Require Import QArith.Qcanon.
+Require Import QArith.Qcabs.
 Require Import Qabs.
 Require Import FunctionalExtensionality.
 Require Import Coq.Logic.PropExtensionality.
+Require Import base.
 
-(* TODO: Maybe I should first implement reals using LEM and choice? Or look at lean's implementation? *)
-
-(* Something to consider: represent cauchy as Q -> Q, which means given epsilon, 
- rest of outputs should be within epsilon *)
+(*
+I'm going to try QCanon to see if that makes things better or worse
+*)
 
 (* Classical rational number *)
 
-Definition CQ := Classical Q.
+Definition CQ := Classical Qc.
 
 (* TODO: Do I need the [] around the exists? *)
 Record cauchy : Type :=
   { seq : nat -> CQ
-  ; property : forall epsilon : Q, epsilon > 0 -> [exists N : nat,
+  ; property : forall epsilon : Qc, (Qclt 0 epsilon) -> [exists N : nat,
      forall n m : nat, le N n -> le N m ->
      toProp (
          Cbind (seq n) (fun x => Cbind (seq m) (fun y =>
-         Creturn (Qle (Qabs (x - y)) epsilon))))]
+         Creturn (Qcle (Qcabs (x - y)) epsilon))))]
 
   }.
 
 (* Maybe I need an [] around the exists N ??? *)
 Definition Ceq (seq1 seq2 : cauchy) : Prop :=
-    forall epsilon : Q, epsilon > 0 -> [exists N : nat, forall n : nat, le N n ->
+    forall epsilon : Qc, epsilon > 0 -> [exists N : nat, forall n : nat, le N n ->
      toProp (
      Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
-     Creturn (Qle (Qabs (x - y)) epsilon))))].
+     Creturn (Qcle (Qcabs (x - y)) epsilon))))].
 
 (* TODO: I don't think that this definition is correct.
  There can be two sequences both converging to the same number but one is always greater
@@ -54,11 +55,13 @@ Require Import Nat.
 Definition Cplus (seq1 seq2 : cauchy) : cauchy.
   refine {| seq := (fun n => Cbind (seq seq1 n) (fun x =>
                             Cbind (seq seq2 n) (fun y =>
-                            Creturn (Qplus x y))))|}.
+                            Creturn (Qcplus x y))))|}.
   intros.
-  pose (halfe := Qdiv epsilon 2).
+  pose (halfe := Qcdiv epsilon (Q2Qc 2)).
   assert (halfe > 0) as Hh. {
-    apply Qmult_lt_0_compat.
+    Check Qmult_lt_0_compat.
+    Search Qc (Qclt 0 _) Qcmult.
+    apply Qcmult_lt_0_compat.
     - assumption.
     - apply Qinv_lt_0_compat.
       repeat constructor.
@@ -1085,95 +1088,21 @@ Fixpoint double_pos_n_times (n : nat) (z : positive) : positive :=
 Require Import IntDef.
 Search (Z -> nat).
 
-Search positive "pow".
-Search Pos.pow.
-
 Theorem doubling_pos_makes_it_bigger :
   forall (x y : positive),
-  Pos.lt y (double_pos_n_times (Pos.to_nat y) x).
+  Pos.lt y (double_pos_n_times (Pos.to_nat (x - y)) (x + 1)).
 Proof.
   intros.
-  refine (Pos.peano_ind (fun y => y < double_pos_n_times (Pos.to_nat y) x)%positive
-        _ _ y).
-  - 
+  remember (x - y)%positive as diff.
+  Search positive "ind".
+  Check Pos.peano_ind.
+  generalize dependent Heqdiff.
+  refine (Pos.peano_ind (fun diff => (diff = (x - y) ->
+                                      y < double_pos_n_times (Pos.to_nat diff) (x + 1))%positive)
+        _ _ diff).
+  - intros.
     simpl in *.
-    Search Pos.add "comm".
-    Search Pos.mul "comm".
-    rewrite Pos.mul_comm.
-    simpl.
-    Print Pos.succ.
-    Print positive.
-    Search Pos.lt 1%positive xO.
-    Search Pos.lt 1%positive.
-Abort.
 
-Theorem rational_bounded_by_int :
-  forall (q : Q), exists z : Z, inject_Z z >= q.
-Proof.
-  intros.
-  destruct q.
-  exists (Z.abs Qnum).
-  unfold inject_Z.
-  unfold Qle.
-  simpl.
-  destruct (Z.nonpos_nonneg_cases Qnum).
-  - rewrite (Z.abs_neq Qnum H).
-    ring_simplify.
-    apply (Z.le_trans _ 0).
-    + assumption.
-    + apply Z.mul_nonneg_nonneg.
-      * apply Z.opp_nonneg_nonpos.
-        assumption.
-      * apply Pos2Z.pos_is_nonneg.
-  - rewrite (Z.abs_eq Qnum H).
-    apply Z.mul_le_mono_nonneg_l.
-    + assumption.
-    + assert (this := Pos2Z.pos_is_pos Qden).
-      apply Zorder.Zlt_0_le_0_pred in this.
-      apply (Zorder.Zplus_le_compat_r 0 (Z.pred (Z.pos Qden)) 1) in this.
-      rewrite <- Z.sub_1_r in this.
-      ring_simplify in this.
-      assumption.
-Qed.
-
-(*
-- For each n, the segment at (converging n) has size smaller than (1 / NattoZ n)
-- For any epsilon : Q, there is an integer Z such that epsilon < 1 / Z
- *)
-
-Theorem rational_bounded_below_int :
-  forall (q : Q), (0 < q) -> exists z : Z, (1 / inject_Z z) <= q.
-Proof.
-  intros.
-  destruct (rational_bounded_by_int (1 / q)) as [bound fact].
-  exists bound.
-  Search Qle Qmult.
-  assert (alsole := Qlt_le_weak _ _ H).
-  apply (Qmult_le_compat_r _ _ q) in fact; auto.
-  field_simplify in fact.
-  2: {
-    Search (~ (_ == _)) Qlt.
-    intros p.
-    apply Qeq_sym in p.
-    apply Qlt_not_eq in H.
-    contradiction.
-  }
-  (*apply (Qmult_le_compat_r _ _ (/(inject_Z bound))) in fact; auto.
-  Search Qle Qmult.*)
-Abort.
-
-(*
-Search (nat -> Z).
-Check converging.
-Theorem bound_size_converging_intervals :
-  forall startTop startBot decide n,
-    toProp (
-        Cbind (converging startTop startBot decide n) (fun tb =>
-        Cbind startTop (
-        let t := fst tb in
-        let b := snd tb in
-        Creturn ((t - b) == (startTop - startBot) / (Z.pow 2 (Z.of_nat n))))).
-*)
 Definition convergingTop (startTop startBot : CQ) (decide : Q -> Prop) : cauchy.
   refine {|seq := fun n => Cbind (converging startTop startBot decide n) (fun pair =>
                            match pair with (t , b) =>
