@@ -244,8 +244,6 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
   pose (bound1 := (Qabs x) + 1).
   pose (bound2 := (Qabs y) + 1).
 
-  (*assert (forall m, le boundN1 m ->
-                    toProp (Cbind (seq seq1 m) (fun y => Creturn (Qabs (1 - y) <= 1)))) as bound1'. {*)
   assert (forall m, le boundN1 m ->
                     toProp (Cbind (seq seq1 m) (fun y => Creturn (Qabs y <= bound1))))
     as bound1fact'. {
@@ -297,7 +295,6 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
     - apply Qinv_lt_0_compat.
       repeat constructor.
       unfold bound1, bound2.
-      Search Qlt 0 Qmult.
       apply Qmult_lt_0_compat.
       + apply Qmult_lt_0_compat.
         * repeat constructor.
@@ -345,12 +342,6 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
   }
   apply (Qle_trans _ _ _ (Qeq_le H2)).
   clear H2 triversion.
-
-  Search Qmult Qle 0.
-  Search Qabs 0.
-  Search Qmult "compat".
-  Check (Qmult_compat (Qabs_nonneg _) (Qabs_nonneg _) bound1fact_1 p2).
-  Check (Qmult_compat (Qabs_nonneg _) (Qabs_nonneg _) p1 bound2fact_2).
 
   apply (Qle_trans _ _ _ (Qplus_le_compat _ _ _ _
            (Qmult_compat (Qabs_nonneg _) (Qabs_nonneg _) bound1fact_1 p2)
@@ -410,7 +401,6 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
       assumption.
     + apply (Qmult_lt_0_le_reg_r _ _ 2); auto.
       field_simplify; auto.
-      Search Qinv Qle.
       rewrite Qinv_def.
       apply Qinv_le_0_compat.
       apply Qlt_le_weak.
@@ -427,7 +417,6 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
       assumption.
     + apply (Qmult_lt_0_le_reg_r _ _ 2); auto.
       field_simplify; auto.
-      Search Qinv Qle.
       rewrite Qinv_def.
       apply Qinv_le_0_compat.
       apply Qlt_le_weak.
@@ -509,6 +498,23 @@ Proof.
   apply Preturn.
   apply Qplus_assoc.
 Qed.
+
+Theorem Cmult_comm : forall x y, Ceq (Cmult x y) (Cmult y x).
+Proof.
+  intros.
+  apply exact_equality.
+  intros.
+
+  simpl.
+
+  asreturn2 (seq x n).
+  asreturn2 (seq y n).
+
+  classical_auto.
+  apply Preturn.
+  apply Qmult_comm.
+Qed.
+
 Require Import QOrderedType.
 Check Q_as_DT.eq_equiv.
 Check Q_as_OT.lt_strorder.
