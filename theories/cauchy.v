@@ -174,8 +174,56 @@ Proof.
     apply Qnot_le_lt in H0.
     apply Qlt_le_weak.
     assumption.
-Qed.      
+Qed.
 
+Lemma Qplus_compat : forall {a b c d : Q}, a == c -> b == d -> a + b == c + d.
+Proof.
+  intros.
+  apply (Qeq_trans _ (a + d)).
+  - apply Qplus_inj_l.
+    assumption.
+  - apply Qplus_inj_r.
+    assumption.
+Qed.
+
+Lemma Qabs_compat : forall {x y : Q}, x == y -> Qabs x == Qabs y.
+Proof.
+  intros.
+  Search Qabs Qeq.
+  apply Qabs_wd_Proper.
+  assumption.
+Qed.
+
+Lemma Qmult_compat : forall {a b c d : Q},
+    a >= 0 -> b >= 0
+    -> c >= a -> d >= b
+    -> a * b <= c * d.
+Proof.
+  intros.
+
+  apply (Qle_trans _ (c * b)).
+  -
+    Search Qmult Qle.
+    apply Qmult_le_compat_r; assumption.
+  - Search Qmult Qle.
+    Check Qmult_comm.
+    apply (Qle_trans _ (b * c)).
+    + apply Qeq_le.
+      apply Qmult_comm.
+    + apply (Qle_trans _ (d * c)).
+      * apply Qmult_le_compat_r; auto.
+        apply (Qle_trans _ _ _ H H1).
+      * apply Qeq_le.
+        apply Qmult_comm.
+Qed.
+
+Lemma Qinv_def : forall {x : Q}, 1 / x = /x.
+Proof.
+  intros.
+  destruct x.
+  destruct Qnum; auto.
+Qed.
+  
 Definition Cmult (seq1 seq2 : cauchy) : cauchy.
   refine {| seq := (fun n => Cbind (seq seq1 n) (fun x =>
                             Cbind (seq seq2 n) (fun y =>
@@ -271,9 +319,9 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
   specialize (p2 n m (Nat.max_lub_r _ _ _ (Nat.max_lub_r _ _ _ H0))
                  (Nat.max_lub_r _ _ _ (Nat.max_lub_r _ _ _ H1))).
   assert (bound1fact_1 := bound1fact' n (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ H0))).
-  (*assert (bound1fact_2 := bound1fact' m (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ H1))).*)
+  assert (bound1fact_2 := bound1fact' m (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ H1))).
   assert (bound2fact_1 := bound2fact' n (Nat.max_lub_r _ _ _ (Nat.max_lub_l _ _ _ H0))).
-  (*assert (bound2fact_2 := bound2fact' m (Nat.max_lub_r _ _ _ (Nat.max_lub_l _ _ _ H1))).*)
+  assert (bound2fact_2 := bound2fact' m (Nat.max_lub_r _ _ _ (Nat.max_lub_l _ _ _ H1))).
   asreturn2 (seq seq1 n).
   asreturn2 (seq seq2 n).
   asreturn2 (seq seq1 m).
@@ -284,27 +332,114 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
 
   (* Now the rational number proof part *)
   
-  apply (Qle_trans _ (Qabs (x0 * x1 - (x0 + epsilon') * (x1 + epsilon')))).
-  - 
-    
-    give_up.
-  - assert  (x0 * x1 - (x0 + epsilon') * (x1 + epsilon')
-             == - x1*epsilon' - x0 * epsilon' - epsilon' * epsilon') as eq. {
-      field.
-    }
-    eapply Qle_trans.
-    + apply Qle_lteq.
-      apply or_intror.
-      apply Qabs_wd.
-      apply eq.
-    + unfold epsilon'.
-      
-      
-      
-      
-  Search "triangle".
+  assert (x0*x1 - x2*x3 == (x0*x1 - x0*x3) + (x0*x3 - x2*x3)) as triversion. {
+    field.
+  }
+  apply (Qle_trans _ _ _ (Qeq_le (Qabs_wd _ _ triversion))).
+  apply (Qle_trans _ _ _ (Qabs_triangle _ _)).
+  assert ((Qabs (x0 * x1 - x0 * x3) + Qabs (x0 * x3 - x2 * x3) ==
+             (Qabs x0) * (Qabs (x1 - x3)) + (Qabs (x0 - x2) * (Qabs x3)))). {
+    apply (Qeq_trans _ (Qabs (x0 * (x1 - x3)) + Qabs ((x0 - x2) * x3))).
+    - apply Qplus_compat; apply Qabs_wd_Proper; field.
+    - apply (Qplus_compat (Qabs_Qmult x0 (x1 - x3)) (Qabs_Qmult (x0 - x2) x3)).
+  }
+  apply (Qle_trans _ _ _ (Qeq_le H2)).
+  clear H2 triversion.
+
+  Search Qmult Qle 0.
+  Search Qabs 0.
+  Search Qmult "compat".
+  Check (Qmult_compat (Qabs_nonneg _) (Qabs_nonneg _) bound1fact_1 p2).
+  Check (Qmult_compat (Qabs_nonneg _) (Qabs_nonneg _) p1 bound2fact_2).
+
+  apply (Qle_trans _ _ _ (Qplus_le_compat _ _ _ _
+           (Qmult_compat (Qabs_nonneg _) (Qabs_nonneg _) bound1fact_1 p2)
+           (Qmult_compat (Qabs_nonneg _) (Qabs_nonneg _) p1 bound2fact_2))).
+  unfold epsilon'.
+
+   assert (bound1 >= 1) as bound1gt. {
+     unfold bound1.
+     apply (Qplus_le_r _ _ ( -1)).
+     field_simplify.
+     apply Qabs_nonneg.
+   }
+
+   assert (bound2 >= 1) as bound2gt. {
+     unfold bound2.
+     apply (Qplus_le_r _ _ ( -1)).
+     field_simplify.
+     apply Qabs_nonneg.
+  }
   
-Abort.
+  assert (bound1 > 0) as bound1pos. {
+     apply (Qlt_le_trans _ 1); auto.
+   }
+
+  assert (bound2 > 0) as bound2pos. {
+     apply (Qlt_le_trans _ 1); auto.
+  }
+  assert (~ bound2 == 0). {
+    intros p.
+    apply Qeq_sym in p.
+    apply Qlt_not_eq in bound2pos.
+    contradiction.
+  }
+  assert (~ bound1 == 0). {
+    intros p.
+    apply Qeq_sym in p.
+    apply Qlt_not_eq in bound1pos.
+    contradiction.
+   }
+
+   assert ( bound1 * (epsilon / (2 * bound1 * bound2)) + epsilon / (2 * bound1 * bound2) * bound2
+            ==  (epsilon / (2 * bound2)) + (epsilon / (2 * bound1))) as temp. {
+     field; auto.
+   }
+   apply (Qle_trans _ _ _ (Qeq_le temp)).
+   clear temp.
+
+   apply (Qle_trans _ (epsilon / 2 + epsilon / 2)).
+   2: {
+     repeat field_simplify.
+     apply Qle_refl.
+   }
+   
+   apply Qplus_le_compat.
+  - apply Qmult_compat.
+    + apply Qlt_le_weak.
+      assumption.
+    + apply (Qmult_lt_0_le_reg_r _ _ 2); auto.
+      field_simplify; auto.
+      Search Qinv Qle.
+      rewrite Qinv_def.
+      apply Qinv_le_0_compat.
+      apply Qlt_le_weak.
+      auto.
+    + apply Qle_refl.
+    + field_simplify; auto.
+      repeat rewrite Qinv_def.
+      apply (Qmult_lt_0_le_reg_r _ _ 2); auto.
+      field_simplify; auto.
+      apply (Qmult_lt_0_le_reg_r _ _ bound2); auto.
+      field_simplify; auto.
+  - apply Qmult_compat.
+    + apply Qlt_le_weak.
+      assumption.
+    + apply (Qmult_lt_0_le_reg_r _ _ 2); auto.
+      field_simplify; auto.
+      Search Qinv Qle.
+      rewrite Qinv_def.
+      apply Qinv_le_0_compat.
+      apply Qlt_le_weak.
+      auto.
+    + apply Qle_refl.
+    + field_simplify; auto.
+      repeat rewrite Qinv_def.
+      apply (Qmult_lt_0_le_reg_r _ _ 2); auto.
+      field_simplify; auto.
+      apply (Qmult_lt_0_le_reg_r _ _ bound1); auto.
+      field_simplify; auto.
+Defined.
 
 Theorem exact_equality (x y : cauchy)
         (H : forall n, toProp (
