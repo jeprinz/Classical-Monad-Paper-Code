@@ -1170,34 +1170,50 @@ Proof.
     asreturn2 (converging startTop startBot decide n).
     classical_auto.
     apply (Pbind (Plem (decide ((snd x + fst x) / 2)))); intros yesorno.
-    destruct yesorno.
-    + Check PifDef1.
-      rewrite (PifDef1 _ _ _ H).
-      classical_auto.
-      simpl.
-      apply Preturn.
-      (* seems plausible *)
-      pose (Q1 := inject_Z (2 ^ Z.of_nat n)).
-      assert (~ Q1 == 0) as nonneg1. {
-        unfold Q1.
-        intros p.
-        Search inject_Z eq Qeq.
-        assert (0 == inject_Z 0) as p' by field.
-        apply (Qeq_trans _ _ _ p) in p'.
-        clear p.
-        apply -> inject_Z_injective in p'.
-        Search Z.pow eq 0%Z not.
-        Check Z.pow_nonzero.
-        refine (Z.pow_nonzero _ _ _ _ p').
-        - easy.
-        - apply Zorder.Zle_0_nat.
+
+    pose (Q1 := inject_Z (2 ^ Z.of_nat n)).
+    assert (~ Q1 == 0) as nonneg1. {
+      unfold Q1.
+      intros p.
+      assert (0 == inject_Z 0) as p' by field.
+      apply (Qeq_trans _ _ _ p) in p'.
+      clear p.
+      apply -> inject_Z_injective in p'.
+      refine (Z.pow_nonzero _ _ _ _ p').
+      - easy.
+      - apply Zorder.Zle_0_nat.
+    }
+    pose (Q2 := inject_Z (Z.pow_pos 2 (Pos.of_succ_nat n))).
+    assert (Q2 == 2 * Q1) as double. {
+      unfold Q2.
+      rewrite Z.pow_pos_fold.
+      rewrite Znat.Zpos_P_of_succ_nat.
+      rewrite (Z.pow_succ_r).
+      2: {
+        apply Zorder.Zle_0_nat.
       }
-      pose (Q2 := inject_Z (Z.pow_pos 2 (Pos.of_succ_nat n))).
-      assert (~  Q2 == 0) as nonneg. {
-        (* later I basically prove that Q2 = 2 * Q1, so I could do that earlier and use the above proof*)
-        give_up.
-      }
-      field_simplify; auto.
+      rewrite inject_Z_mult.
+      unfold Q1.
+      field_simplify.
+      apply Qeq_refl.
+    }
+    assert (~  Q2 == 0) as nonneg. {
+      intros p.
+      apply Qeq_sym in double.
+      apply (Qeq_trans _ _ _ double) in p.
+      Search Qmult Qeq.
+      Check Qmult_inj_r.
+      apply (Qmult_inj_l _ _ (/2)) in p; try easy.
+      field_simplify in p.
+      apply (Qeq_trans _ _ 0) in p; try field.
+      contradiction.
+    }
+
+    (* A lemma that we will need in both cases *)
+    assert ((fst x - snd x == (startTop - startBot) / inject_Z (2 ^ Z.of_nat n))
+            -> (fst x + -1 * snd x) / 2 ==
+                 (startTop + -1 * startBot) / inject_Z (Z.pow_pos 2 (Pos.of_succ_nat n))) as sdfsdf. {
+      intros.
       apply (Qmult_inj_r _ _ 2). {
         intros p.
         inversion p.
@@ -1212,21 +1228,28 @@ Proof.
       apply (Qeq_trans _ (2 * (startTop - startBot) * Q1)); try field.
 
       (* by doing this stuff I can make the thing look like the thing *)
-      unfold Q2.
-      rewrite Z.pow_pos_fold.
-      rewrite Znat.Zpos_P_of_succ_nat.
-      rewrite (Z.pow_succ_r).
-      2: {
-        apply Zorder.Zle_0_nat.
-      }
-      rewrite inject_Z_mult.
-      unfold Q1.
-      field_simplify.
-      apply Qeq_refl.
-    + give_up.
-      (* TODO: This is where I left off. I need to somehow combine the two parts of this,
-       instead of redoing the entire  proof in this case. *)
-Abort.
+      Search Qmult Qeq (_ * _ == _ * _).
+      Check Qmult_inj_l.
+      Search Qmult Proper.
+      apply (Qeq_trans _ _ _ (Qmult_comp _ _ (Qeq_refl _) _ _ double)).
+      field.
+    }
+    
+    destruct yesorno.
+    + Check PifDef1.
+      rewrite (PifDef1 _ _ _ H).
+      classical_auto.
+      simpl.
+      apply Preturn.
+      field_simplify; auto.
+    + rewrite (PifDef2 _ _ _ H).
+      classical_auto.
+      simpl.
+      apply Preturn.
+      field_simplify; auto.
+      apply (Qeq_trans _ ((fst x - snd x)/2)); try field.
+      apply (sdfsdf IHn).
+Qed.
 
 (*
 Overall, there are many standard library theorems about powers in Z, but not in Q.
