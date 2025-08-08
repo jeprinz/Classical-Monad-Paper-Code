@@ -47,6 +47,14 @@ Definition Clt (seq1 seq2 : cauchy) : Prop :=
        Creturn (Qlt x y))))]
   /\ (~ Ceq seq1 seq2).
 
+(* TODO: replace Clt with a definition in terms of this one, or
+ at least prove that it is equivalent to (Cle and not Ceq) *)
+Definition Cle (seq1 seq2 : cauchy) : Prop :=
+    forall epsilon : Q, epsilon > 0 -> [exists N : nat, forall n : nat, le N n ->
+     toProp (
+     Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
+     Creturn (Qle (x - y) epsilon))))].
+
 Require Import PeanoNat.
 Require Import Nat.
 
@@ -1530,18 +1538,51 @@ Check converging_cauchy.
 
 Theorem two_bounds_equal : forall startTop startBot decide
     (diff : startTop > startBot),
-    let (u , b) := converging_cauchy startTop startBot decide diff in
+(*    let (u , b) := converging_cauchy startTop startBot decide diff in*)
+    let u := fst (converging_cauchy startTop startBot decide diff) in
+    let b := snd (converging_cauchy startTop startBot decide diff) in
     Ceq u b.
 Proof.
   intros.
   unfold Ceq.
-  Arguments Qle : simpl never.
-  simpl.
   intros.
   apply Preturn.
   Check epsilon_bound_size_converging_intervals.
-Abort.  
+  destruct (epsilon_bound_size_converging_intervals epsilon startTop startBot decide H diff) as [N close].
+  exists N.
+  intros.
+  assert (apart :=separate startTop startBot decide n diff).
+  assert (mono := monotonic startTop startBot decide N n H0 diff).
+  simpl seq.
 
+  asreturn2 (converging startTop startBot decide n).
+  asreturn2 (converging startTop startBot decide N).
+  classical_auto.
+  clear u b.
+  apply Preturn.
+
+  destruct x as [tn bn].
+  destruct x0 as [tN bN].
+  simpl fst in *.
+  simpl snd in *.
+  specialize mono as [tntN bNbn].
+
+  apply Qlt_le_weak in apart.
+  Search Qabs Qle.
+  apply Qabs_diff_Qle_condition.
+  split.
+  - apply (Qplus_le_l _ _ (epsilon - bn)).
+    field_simplify.
+    apply (bound_lemma_1 tntN).
+    apply (bound_lemma_2 bNbn).
+    assumption.
+  - apply (Qplus_le_l _ _ (-tn)).
+    field_simplify.
+    apply (bound_lemma_1 apart).
+    field_simplify.
+    apply Qlt_le_weak.
+    assumption.
+Qed.
 
 Definition convergingTop (startTop startBot : Q) (decide : Q -> Prop) : cauchy.
   refine {|seq := fun n => Cbind (converging startTop startBot decide n) (fun pair =>
