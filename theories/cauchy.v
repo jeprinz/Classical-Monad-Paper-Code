@@ -136,7 +136,35 @@ Proof.
   
   
 Abort.
-*)
+ *)
+
+Search (Z -> positive).
+Lemma write_frac_as_Qmake : forall {z : Z},
+    Z.lt 0 z ->
+    1 / (inject_Z z) = Qmake 1 (Z.to_pos z).
+Proof.
+  intros.
+  destruct z.
+  - simpl.
+    inversion H.
+  - simpl.
+    Search (inject_Z (Z.pos _)).
+    unfold Qdiv, Qinv, Qmult.
+    simpl.
+    reflexivity.
+  - inversion H.
+Qed.
+
+Lemma Z_lt_le_off_by_one : forall x : Z,
+    (0 < x)%Z -> (1 <= x)%Z.
+Proof.
+  intros.
+  apply Zorder.Zlt_0_le_0_pred in H.
+  apply (Zorder.Zplus_le_compat_r 0 (Z.pred x) 1) in H.
+  rewrite <- Z.sub_1_r in H.
+  ring_simplify in H.
+  assumption.
+Qed.
 
 Lemma QabsPlus1 : forall x, 0 < (Qabs x) + 1.
 Proof.
@@ -1115,10 +1143,7 @@ Proof.
     apply Z.mul_le_mono_nonneg_l.
     + assumption.
     + assert (this := Pos2Z.pos_is_pos Qden).
-      apply Zorder.Zlt_0_le_0_pred in this.
-      apply (Zorder.Zplus_le_compat_r 0 (Z.pred (Z.pos Qden)) 1) in this.
-      rewrite <- Z.sub_1_r in this.
-      ring_simplify in this.
+      apply Z_lt_le_off_by_one.
       assumption.
 Qed.
 
@@ -1250,6 +1275,77 @@ Proof.
       apply (Qeq_trans _ ((fst x - snd x)/2)); try field.
       apply (sdfsdf IHn).
 Qed.
+
+Check bound_size_converging_intervals.
+
+Lemma rational_den_comparison :
+  forall q, q > 0 -> (Qmake 1 (Qden q)) <= q.
+Proof.
+  intros.
+  destruct q.
+  unfold Qle.
+  simpl.
+  apply (Z.le_trans _ (1 * (Z.pos Qden)));
+    [(ring_simplify; apply Z.le_refl)|].
+  apply Z.mul_le_mono_nonneg_r.
+  - apply Z.lt_le_incl.
+    apply Pos2Z.pos_is_pos.
+  - unfold Qlt in H.
+    simpl in H.
+    ring_simplify in H.
+    apply Z_lt_le_off_by_one.
+    assumption.
+Qed.
+
+Lemma bound_rational_with_power :
+  forall q : Q,
+    q > 0 ->
+    exists n,
+      (1 / inject_Z (2 ^ Z.of_nat n)) <= q.
+Proof.
+  intros.
+  pose (den := Qden q).
+  (* we want n such that (1 / 2^n) <= (num / den),
+   so let n = log2 q.
+   2^(log2_up x) >= x, so
+   Then, (1 / 2^(log2_up den)) <= (1 / den) *)
+  exists (Z.to_nat (Z.log2_up (Zpos den))).
+  rewrite Znat.Z2Nat.id.
+  2: {
+    apply Z.log2_up_nonneg.
+  }
+  assert (itsastart := Z.log2_log2_up_spec (Z.pos den)).
+  specialize (itsastart (Pos2Z.pos_is_pos _)) as [_ itsastart].
+ 
+  assert (Z.lt 0%Z (2 ^ Z.log2_up (Z.pos den))%Z). {
+    apply Z.pow_pos_nonneg.
+    - easy.
+    - apply Z.log2_up_nonneg.
+  }
+  
+  
+  apply (Qle_trans _ (Qmake 1 (Qden q))).
+  2: {
+    apply rational_den_comparison.
+    assumption.
+  }
+  
+  rewrite (write_frac_as_Qmake); auto.
+  unfold Qle.
+  simpl.
+  rewrite Z2Pos.id; auto.
+Qed.
+
+Theorem epsilon_bound_size_converging_intervals :
+  forall epsilon startTop startBot decide n,
+    toProp (
+        Cbind (converging startTop startBot decide n) (fun tb =>
+        let t := fst tb in
+        let b := snd tb in
+        Creturn ((t - b) < epsilon))).
+Proof.
+
+Abort.        
 
 (*
 Overall, there are many standard library theorems about powers in Z, but not in Q.
