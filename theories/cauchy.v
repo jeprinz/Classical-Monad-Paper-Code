@@ -592,7 +592,18 @@ Proof.
   - apply Qlt_le_weak.
     assumption.
 Qed.
-  
+
+Theorem Ceq_refl : forall x, Ceq x x.
+Proof.
+  intros.
+  apply exact_equality.
+  intros.
+  asreturn2 (seq x n).
+  classical_auto.
+  apply Preturn.
+  reflexivity.
+Qed.
+    
 (* I need to set things up so that this can just trivially work out to Qplus_comm *)
 Theorem Cplus_comm : forall x y, Ceq (Cplus x y) (Cplus y x).
 Proof.
@@ -655,6 +666,61 @@ Proof.
   intros x y Heq Hlt.
   unfold Ceq, Clt in *.
 Abort.
+
+Theorem Cle_trans : forall x y z, Cle x y -> Cle y z -> Cle x z.
+Proof.
+  intros x y z H1 H2.
+  unfold Cle in *.
+  intros.
+  pose (halfe := Qdiv epsilon 2).
+  assert (halfe > 0) as Hh. {
+    apply Qmult_lt_0_compat.
+    - assumption.
+    - apply Qinv_lt_0_compat.
+      repeat constructor.
+  }
+  specialize (H1 halfe Hh).
+  specialize (H2 halfe Hh).
+  classical_auto.
+  specialize H1 as [N1 H1].
+  specialize H2 as [N2 H2].
+  apply Preturn.
+  exists (max N1 N2).
+  intros.
+  specialize (H1 n (Nat.le_trans _ _ _ (Nat.le_max_l N1 N2) H0)).
+  specialize (H2 n (Nat.le_trans _ _ _ (Nat.le_max_r N1 N2) H0)).
+
+  asreturn2 (seq x n).
+  asreturn2 (seq y n).
+  asreturn2 (seq z n).
+  classical_auto.
+  apply Preturn.
+
+  assert (combined := Qplus_le_compat _ _ _ _ H1 H2).
+  unfold halfe in combined.
+  repeat field_simplify in combined.
+  assumption.
+Qed.
+
+Theorem Ceq_Cle : forall x y, Ceq x y -> Cle x y.
+Proof.
+  intros.
+  unfold Cle, Ceq in *.
+  intros.
+  specialize (H epsilon H0).
+  classical_auto.
+  specialize H as [N H].
+  apply Preturn.
+  exists N.
+  intros.
+  specialize (H n H1).
+  asreturn2 (seq x n).
+  asreturn2 (seq y n).
+  classical_auto.
+  apply Preturn.
+  apply Qabs_Qle_condition in H as [_ H].
+  assumption.
+Qed.
 
 Theorem not_exists (T : Type) (P : T -> Prop) (E : ~exists t, P t)
   : forall t, ~(P t).
@@ -1584,20 +1650,133 @@ Proof.
     assumption.
 Qed.
 
-Definition convergingTop (startTop startBot : Q) (decide : Q -> Prop) : cauchy.
-  refine {|seq := fun n => Cbind (converging startTop startBot decide n) (fun pair =>
-                           match pair with (t , b) =>
-                           Creturn t end )|}.
+(*
+TODO:
+- If decide is downward-closed, then all elements of upper sequence are not in decide and
+  all elements of lower sequence are in decide
+ *)
+
+Theorem top_bottom_decide startTop startBot decide (n : nat)
+        (H : startBot < startTop)
+        (dtop : ~ decide startTop)
+        (dbot : decide startBot)
+  :
+  toProp (Cbind (converging startTop startBot decide n) (fun tb =>
+          let t := fst tb in
+          let b := snd tb in
+          Creturn (decide b /\ ~ decide t))).
+Proof.
+  Check separate.
+
+  induction n.
+  -
+    simpl in *.
+    classical_auto.
+    apply Preturn.
+    simpl.
+    auto.
+  - simpl in *.
+    asreturn2 (converging startTop startBot decide n).
+    destruct x as [t b].
+    classical_auto.
+    simpl in *.
+    apply (Pbind (Plem (decide ((b + t) / 2)))).
+    intros PornotP.
+    destruct PornotP.
+    + rewrite PifDef1; try assumption.
+      classical_auto.
+      apply Preturn.
+      simpl.
+      destruct IHn as [decb dect].
+      auto.
+    + rewrite PifDef2; try assumption.
+      classical_auto.
+      apply Preturn.
+      simpl.
+      destruct IHn.
+      auto.
+Qed.
+
+Definition QinjR (q : Q) : cauchy.
+  refine {| seq := fun _ => Creturn q|}.
+  intros.
+  apply Preturn.
+  exists 0%nat.
+  intros.
+  classical_auto.
+  apply Preturn.
+  field_simplify (q - q).
+  simpl.
+  apply Qlt_le_weak.
+  assumption.
+Defined.
+
+(* Will I need a properoty saying that S respects Ceq? *)
+Definition make_decider (S : cauchy -> Prop) (q : Q) : Prop :=
+  exists r, S r /\ Cle (QinjR q) r.
+
+
+
+Theorem is_upper_bound :
+  forall (S : cauchy -> Prop) startTop startBot
+         (diff : startTop > startBot)
+    (sbin : S (QinjR startBot))
+    (sbnotin : forall r, S r -> ~ Cle (QinjR startTop) r),
+    let u := fst (converging_cauchy startTop startBot (make_decider S) diff) in
+    forall r (rInS : S r),
+      Cle r u.
+Proof.
+  intros.
+  unfold Cle.
   intros.
   simpl.
-  assert ((fun x : Q * Q => let (t, _) := x in Creturn t) = (fun x => Creturn (fst x))). {
-    extensionality x.
+
+  assert ((make_decider S) startBot) as decidebot. {
+    unfold make_decider.
+    exists (QinjR startBot).
     intros.
-    destruct x.
-    reflexivity.
+    split.
+    - assumption.
+    - apply Ceq_Cle.
+      apply Ceq_refl.
   }
-  repeat rewrite H0.
-  repeat rewrite bindDef.
-  Check monadlaw2.
-Abort.
- 
+  assert (~ (make_decider S) startTop) as decidetop. {
+    unfold make_decider.
+    intros [r' [Sr' ler']].
+    specialize (sbnotin r' Sr').
+    contradiction.
+  }
+
+  assert (propertyr := property r epsilon H).
+  assert (propertyseq := property (fst (converging_cauchy startTop startBot (make_decider S) diff))
+                                  epsilon H).
+  (*destruct (epsilon_bound_size_converging_intervals epsilon startTop startBot
+                                                    (make_decider S) H diff) as [N2 lemma].*)
+  classical_auto.
+  specialize propertyr as [N1 propertyr].
+  specialize propertyseq as [N2 propertyseq].
+
+
+  apply Preturn.
+
+  exists (max N1 N2).
+  intros.
+  
+  assert (tbd := top_bottom_decide startTop startBot (make_decider S) n diff decidetop decidebot).
+  specialize (propertyr (max N1 N2) n
+                        (Nat.max_lub_l _ _ _ (Nat.le_refl _)) (Nat.max_lub_l _ _ _ H0)).
+  specialize (propertyseq (max N1 N2) n
+                          (Nat.max_lub_r _ _ _ (Nat.le_refl _)) (Nat.max_lub_r _ _ _ H0)).
+  simpl seq in *.
+  
+  asreturn2 (converging startTop startBot (make_decider S) n).
+  asreturn2 (converging startTop startBot (make_decider S) (max N1 N2)).
+  asreturn2 (seq r n).
+  asreturn2 (seq r (max N1 N2)).
+  classical_auto.
+  
+  
+  apply Preturn.
+  classical_auto.
+  
+  
