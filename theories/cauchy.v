@@ -270,6 +270,54 @@ Proof.
       assumption.
 Qed.
 
+Lemma pow_nonzero : forall n, ~ inject_Z (2 ^ Z.of_nat n) == 0.
+Proof.
+  intros n p.
+  assert (0 == inject_Z 0) as p' by field.
+  apply (Qeq_trans _ _ _ p) in p'.
+  clear p.
+  apply -> inject_Z_injective in p'.
+  refine (Z.pow_nonzero _ _ _ _ p').
+  - easy.
+  - apply Zorder.Zle_0_nat.
+Qed.
+
+Lemma bound_lemma_1 : forall {a b c a' : Q},
+    a' >= a
+    -> a' - b <= c
+    -> a - b <= c.
+Proof.
+  intros.
+  Search Qplus Qle.
+  apply (Qplus_le_l _ _ (-b)) in H.
+  apply (Qle_trans _ _ _ H) in H0.
+  assumption.
+Qed.
+
+Lemma bound_lemma_2 : forall {a b c b' : Q},
+    b' <= b
+    -> a - b' <= c
+    -> a - b <= c.
+Proof.
+  intros.
+  Search Qplus Qle.
+  Search Qminus Qle.
+  Search Qopp Qle.
+  apply Qopp_le_compat in H.
+  apply (Qplus_le_r _ _ a) in H.
+  apply (Qle_trans _ _ _ H) in H0.
+  assumption.
+Qed.
+
+Lemma Qopp_le_compat2 : forall p q : Q, - p <= - q -> q <= p.
+Proof.
+  intros.
+  apply (Qplus_le_r _ _ p) in H.
+  field_simplify in H.
+  apply Qle_minus_iff.
+  assumption.
+Qed.
+
 Theorem Ceq_sym : forall x y, Ceq x y -> Ceq y x.
 Proof.
   intros.
@@ -1199,14 +1247,8 @@ Proof.
     pose (Q1 := inject_Z (2 ^ Z.of_nat n)).
     assert (~ Q1 == 0) as nonneg1. {
       unfold Q1.
-      intros p.
-      assert (0 == inject_Z 0) as p' by field.
-      apply (Qeq_trans _ _ _ p) in p'.
-      clear p.
-      apply -> inject_Z_injective in p'.
-      refine (Z.pow_nonzero _ _ _ _ p').
-      - easy.
-      - apply Zorder.Zle_0_nat.
+      (* TODO: use lemma here *)
+      apply pow_nonzero.
     }
     pose (Q2 := inject_Z (Z.pow_pos 2 (Pos.of_succ_nat n))).
     assert (Q2 == 2 * Q1) as double. {
@@ -1337,15 +1379,47 @@ Proof.
 Qed.
 
 Theorem epsilon_bound_size_converging_intervals :
-  forall epsilon startTop startBot decide n,
+  forall epsilon startTop startBot decide,
+    epsilon > 0 ->
+    startTop > startBot ->
+    exists n,
     toProp (
         Cbind (converging startTop startBot decide n) (fun tb =>
         let t := fst tb in
         let b := snd tb in
-        Creturn ((t - b) < epsilon))).
+        Creturn ((t - b) <= epsilon))).
 Proof.
+  intros.
+  assert (startTop - startBot > 0) as intpos. {
+    apply (Qplus_lt_l _ _ (-startBot)) in H0.
+    field_simplify (startBot - startBot) in H0.
+    assumption.
+  }
+  assert (~ (startTop - startBot == 0)) as intnonzero. {
+    apply Qlt_not_eq in intpos.
+    intros p.
+    apply Qeq_sym in p.
+    contradiction.
+  }
+  specialize (bound_rational_with_power (epsilon / (startTop - startBot))) as [n intervalsize]. {
+    apply (Qmult_lt_r _ _ (startTop - startBot)); auto.
+    field_simplify; auto.
+  }
 
-Abort.        
+  exists n.
+  assert (lemma := bound_size_converging_intervals startTop startBot decide n).
+  asreturn2 (converging startTop startBot decide n).
+  classical_auto.
+  apply Preturn.
+  destruct x as [t b].
+  simpl in *.
+  apply (@QOrder.eq_le _ _ _ lemma).
+  apply Qinv_lt_0_compat in intpos.
+  apply (Qmult_le_l _ _ (/(startTop - startBot))); auto.
+  field_simplify; auto.
+  split; auto.
+  apply pow_nonzero.
+Qed.
 
 (*
 Overall, there are many standard library theorems about powers in Z, but not in Q.
@@ -1353,7 +1427,121 @@ So I need to prove things in terms of power in Z if I want to use the library th
 
 I don't think I need my earlier proof about existence of an integer bound.
 I think I can prove cauchy by useing log2 in Z and this theorem.
-*)
+ *)
+
+Definition converging_cauchy (startTop startBot: Q) (decide : Q -> Prop) (separateStart : startBot < startTop)
+  : cauchy * cauchy.
+  Check converging.
+
+  refine (
+      {| seq := fun n => Cbind (converging startTop startBot decide n) (fun tb =>
+                         Creturn (fst tb))|}
+      ,
+      {| seq := fun n => Cbind (converging startTop startBot decide n) (fun tb =>
+                         Creturn (snd tb))|}
+    ).
+  - intros.
+    destruct (epsilon_bound_size_converging_intervals epsilon startTop startBot decide H separateStart) as [N small].
+
+    apply Preturn.
+    exists N.
+    intros.
+
+    assert (mono1 := monotonic startTop startBot decide N n H0 separateStart).
+    assert (mono2 := monotonic startTop startBot decide N m H1 separateStart).
+    simpl in mono1, mono2.
+    assert (separate_n := separate startTop startBot decide n separateStart).
+    assert (separate_m := separate startTop startBot decide m separateStart).
+
+    asreturn2 (converging startTop startBot decide N).
+    asreturn2 (converging startTop startBot decide n).
+    asreturn2 (converging startTop startBot decide m).
+
+    classical_auto.
+    apply Preturn.
+
+    destruct x as [t0 tb0].
+    destruct x0 as [tn bn].
+    destruct x1 as [tm bm].
+    simpl fst in *.
+    simpl snd in *.
+    destruct mono2 as [tmt0 tb0bm].
+    destruct mono1 as [tnt0 tb0bn].
+    apply Qlt_le_weak in separate_m, separate_n.
+
+    apply Qabs_Qle_condition.
+    split.
+    + apply Qopp_le_compat2.
+      field_simplify.
+      apply (@QOrder.eq_le _ (tm - tn)). {field.}
+      apply (bound_lemma_1 tmt0).
+      apply (bound_lemma_2 separate_n).
+      apply (bound_lemma_2 tb0bn).
+      assumption.
+    + apply (bound_lemma_1 tnt0).
+      apply (bound_lemma_2 separate_m).
+      apply (bound_lemma_2 tb0bm).
+      assumption.
+  -  intros.
+    destruct (epsilon_bound_size_converging_intervals epsilon startTop startBot decide H separateStart) as [N small].
+
+    apply Preturn.
+    exists N.
+    intros.
+
+    assert (mono1 := monotonic startTop startBot decide N n H0 separateStart).
+    assert (mono2 := monotonic startTop startBot decide N m H1 separateStart).
+    simpl in mono1, mono2.
+    assert (separate_n := separate startTop startBot decide n separateStart).
+    assert (separate_m := separate startTop startBot decide m separateStart).
+
+    asreturn2 (converging startTop startBot decide N).
+    asreturn2 (converging startTop startBot decide n).
+    asreturn2 (converging startTop startBot decide m).
+
+    classical_auto.
+    apply Preturn.
+
+    destruct x as [t0 tb0].
+    destruct x0 as [tn bn].
+    destruct x1 as [tm bm].
+    simpl fst in *.
+    simpl snd in *.
+    destruct mono2 as [tmt0 tb0bm].
+    destruct mono1 as [tnt0 tb0bn].
+    apply Qlt_le_weak in separate_m, separate_n.
+
+    apply Qabs_Qle_condition.
+    split.
+    + apply Qopp_le_compat2.
+      field_simplify.
+      apply (@QOrder.eq_le _ (bm - bn)). {field.}
+      apply (bound_lemma_1 separate_m).
+      apply (bound_lemma_1 tmt0).
+      apply (bound_lemma_2 tb0bn).
+      assumption.
+    + apply (bound_lemma_1 separate_n).
+      apply (bound_lemma_1 tnt0).
+      apply (bound_lemma_2 tb0bm).
+      assumption.
+Defined.      
+    
+Check converging_cauchy.
+
+Theorem two_bounds_equal : forall startTop startBot decide
+    (diff : startTop > startBot),
+    let (u , b) := converging_cauchy startTop startBot decide diff in
+    Ceq u b.
+Proof.
+  intros.
+  unfold Ceq.
+  Arguments Qle : simpl never.
+  simpl.
+  intros.
+  apply Preturn.
+  Check epsilon_bound_size_converging_intervals.
+Abort.  
+
 
 Definition convergingTop (startTop startBot : Q) (decide : Q -> Prop) : cauchy.
   refine {|seq := fun n => Cbind (converging startTop startBot decide n) (fun pair =>
