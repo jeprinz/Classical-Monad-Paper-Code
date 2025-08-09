@@ -348,7 +348,87 @@ Proof.
   rewrite Qabs_Qminus.
   assumption.
 Qed.
+
+Theorem not_Cle_property : forall x y,
+    ~ (Cle x y) ->
+    [exists N : nat, forall n, le N n -> toProp (
+     Cbind (seq x n) (fun xn =>
+     Cbind (seq y n) (fun yn =>
+     Creturn (yn <= xn))))]. (* I think this could be < *)
+Proof.
+  intros.
+  unfold Cle in H.
+  apply not_forall_2 in H.
+  pbind H.
+  specialize H as [epsilon [epspos H]].
+  assert (H' := not_exists _ _ H).
+  clear H.
+  rename H' into H.
+  simpl in H.
+
+  assert (epsilon / 2 > 0) as hepspos. {
+    apply (Qmult_lt_r _ _ 2). {repeat constructor.}
+    field_simplify.
+    assumption.
+  }
   
+  assert (propx :=property x (epsilon / 2) hepspos).
+  pbind propx.
+  assert (propy := property y (epsilon / 2) hepspos).
+  pbind propy.
+  destruct propx as [N1 propx].
+  destruct propy as [N2 propy].
+  specialize (H (max N1 N2)).
+
+  apply not_forall_2 in H.
+  pbind H.
+  specialize H as [N3 [N3le seqN3]].
+
+  apply Preturn.
+  exists (max N1 N2).
+  intros.
+
+
+
+  specialize (propx N3 n (Nat.max_lub_l _ _ _ N3le) (Nat.max_lub_l _ _ _ H)).
+  specialize (propy N3 n (Nat.max_lub_r _ _ _ N3le) (Nat.max_lub_r _ _ _ H)).
+
+  asreturn2 (seq x n).
+  asreturn2 (seq y n).
+  asreturn2 (seq y N3).
+  asreturn2 (seq x N3).
+  classical_auto.
+  apply Preturn.
+
+  Search Qle Qabs.
+  apply Qabs_Qle_condition in propy as [propy _].
+  apply Qabs_Qle_condition in propx as [_ propx].
+
+  Search Qle not.
+  apply Qnot_le_lt in seqN3.
+  apply (Qplus_le_l _ _ (x1 + (epsilon / 2))) in propy.
+  repeat field_simplify in propy.
+
+  apply (Qle_trans _ _ _ propy).
+
+  apply Qlt_le_weak in seqN3.
+  apply (Qplus_le_l _ _ (x2 - epsilon )) in seqN3.
+  field_simplify in seqN3.
+  apply (Qplus_le_l _ _ (- epsilon / 2)).
+  repeat field_simplify.
+
+  apply (Qle_trans _ _ _ seqN3).
+
+  apply (Qplus_le_l _ _ epsilon).
+  field_simplify.
+
+  apply (Qplus_le_l _ _ x0) in propx.
+  repeat field_simplify in propx.
+  apply (Qle_trans _ _ _ propx).
+  field_simplify.
+  apply Qle_refl.
+Qed.
+    
 Definition Cmult (seq1 seq2 : cauchy) : cauchy.
   refine {| seq := (fun n => Cbind (seq seq1 n) (fun x =>
                             Cbind (seq seq2 n) (fun y =>
@@ -1778,5 +1858,4 @@ Proof.
   
   apply Preturn.
   classical_auto.
-  
-  
+Abort.
