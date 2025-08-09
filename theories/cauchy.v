@@ -3,17 +3,15 @@ Require Import QArith.
 Require Import Qabs.
 Require Import FunctionalExtensionality.
 Require Import Coq.Logic.PropExtensionality.
-
-(* TODO: Maybe I should first implement reals using LEM and choice? Or look at lean's implementation? *)
-
-(* Something to consider: represent cauchy as Q -> Q, which means given epsilon, 
- rest of outputs should be within epsilon *)
+Require Import Nat.
+Require Import PeanoNat.
+Require Import QOrderedType.
+Require Import PosDef.
+Require Import IntDef.
 
 (* Classical rational number *)
-
 Definition CQ := Classical Q.
 
-(* TODO: Do I need the [] around the exists? *)
 Record cauchy : Type :=
   { seq : nat -> CQ
   ; property : forall epsilon : Q, epsilon > 0 -> [exists N : nat,
@@ -31,33 +29,13 @@ Definition Ceq (seq1 seq2 : cauchy) : Prop :=
      Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
      Creturn (Qle (Qabs (x - y)) epsilon))))].
 
-(* TODO: I don't think that this definition is correct.
- There can be two sequences both converging to the same number but one is always greater
- than the other.
- There are a few ways to fix this:
- 1) postulate that there exists epsilon > 0, and x is < y by at least epsilon
- 2) add a disjunction saying "or Ceq seq1 seq2" and replace < with <=,
-    and make this a definintion of <=. Then, the definition < would be this, but not equal.
- 3) add a conjunction saying they are not equal, and this is a definition of <.
-*)
-Definition Clt (seq1 seq2 : cauchy) : Prop :=
-  [exists N : nat, forall n : nat, le N n ->
-     toProp (
-       Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
-       Creturn (Qlt x y))))]
-  /\ (~ Ceq seq1 seq2).
-
-(* TODO: replace Clt with a definition in terms of this one, or
- at least prove that it is equivalent to (Cle and not Ceq) *)
 Definition Cle (seq1 seq2 : cauchy) : Prop :=
     forall epsilon : Q, epsilon > 0 -> [exists N : nat, forall n : nat, le N n ->
      toProp (
      Cbind (seq seq1 n) (fun x => Cbind (seq seq2 n) (fun y =>
      Creturn (Qle (x - y) epsilon))))].
 
-Require Import PeanoNat.
-Require Import Nat.
-
+Definition Clt (seq1 seq2 : cauchy) : Prop := Cle seq1 seq2 /\ ~ Ceq seq1 seq2.
 
 Definition Cplus (seq1 seq2 : cauchy) : cauchy.
   refine {| seq := (fun n => Cbind (seq seq1 n) (fun x =>
@@ -79,7 +57,6 @@ Definition Cplus (seq1 seq2 : cauchy) : cauchy.
   apply Preturn.
   exists (max N1 N2).
   intros.
-  Check ClassicalInd.
 
   specialize (p1 n m (Nat.max_lub_l _ _ _ H0) (Nat.max_lub_l _ _ _ H1)).
   specialize (p2 n m (Nat.max_lub_r _ _ _ H0) (Nat.max_lub_r _ _ _ H1)).
@@ -106,47 +83,6 @@ Definition Cplus (seq1 seq2 : cauchy) : cauchy.
   apply Qplus_le_compat; assumption.
 Defined.
 
-(*
-Fixpoint max_up_to (f : nat -> CQ) (n : nat) : CQ.
-  refine (match n with
-          | O => Creturn 0
-          | S n' => Cbind (f n) (fun fn =>
-                    Cbind (max_up_to f n') (fun rec =>
-                    Creturn (Qmax fn rec)))
-          end).
-Abort.
-
-Theorem cauchy_upper_bound (c : cauchy) :
-  [ exists bound : Q,
-    forall n,
-      toProp (
-          Cbind (seq c n) (fun x => Creturn (Qlt x bound)))].
-Proof.
-  assert (Qlt 0 1) as fact by repeat constructor.
-  assert (prop := property c 1 fact).
-  classical_auto.
-  specialize prop as [N prop].
-  specialize (prop N).
-  asreturn2 (seq c N).
-  (* why can't I rewrite under the forall? *)
-  Fail rewrite bindDef in prop.
-  assert (forall m, (N <= m)%nat ->
-                    toProp (Cbind (seq c m) (fun y => Creturn (Qabs (x - y) <= 1)))) as prop'. {
-    intros.
-    specialize (prop m (Nat.le_refl N) H).
-    asreturn2 (seq c m).
-    classical_auto.
-    apply Preturn.
-    assumption.
-  }
-  clear prop.
-  (* I need to take the maximum of all elements less than N *)
-  
-  
-Abort.
- *)
-
-Search (Z -> positive).
 Lemma write_frac_as_Qmake : forall {z : Z},
     Z.lt 0 z ->
     1 / (inject_Z z) = Qmake 1 (Z.to_pos z).
@@ -756,7 +692,7 @@ Proof.
   apply Qmult_comm.
 Qed.
 
-Require Import QOrderedType.
+
 Check Q_as_DT.eq_equiv.
 Check Q_as_OT.lt_strorder.
 Print StrictOrder.
@@ -766,11 +702,6 @@ Check (StrictOrder_Transitive (Q_as_OT.lt_strorder)).
 Print Irreflexive.
 Print Reflexive.
 
-Theorem Clt_antireflexive : forall x y, Ceq x y -> ~ (Clt x y).
-Proof.
-  intros x y Heq Hlt.
-  unfold Ceq, Clt in *.
-Abort.
 
 Theorem Cle_trans : forall x y z, Cle x y -> Cle y z -> Cle x z.
 Proof.
@@ -836,197 +767,45 @@ Proof.
   assumption.
 Qed.
 
-(* (Ceq x y) \/ (Clt x y) = ~ (Clt y x) *)
-
-Theorem anti_sym : forall x y, Clt x y -> Clt y x -> False.
+Theorem total_ordering : forall x y, [Cle x y \/ Cle y x].
 Proof.
-  intros x y H1 H2.
-  unfold Clt in H1, H2.
-  apply classical_consistent.
-  specialize H1 as [H1 Neq1].
-  specialize H2 as [H2 Neq2].
-  classical_auto.
-  specialize H1 as [N1 H1].
-  specialize H2 as [N2 H2].
-
-  specialize (H1 (max N1 N2) (Nat.max_lub_l _ _ _ (Nat.le_refl _))).
-  specialize (H2 (max N1 N2) (Nat.max_lub_r _ _ _ (Nat.le_refl _))).
-  asreturn2 (seq x (max N1 N2)).
-  asreturn2 (seq y (max N1 N2)).
-  classical_auto.
+  intros.
+  apply (Pbind (Plem (Cle x y))).
+  intros.
   apply Preturn.
-  Search Qlt not.
-  apply (Qlt_trans _ _ _ H1) in H2.
-  apply (QOrder.lt_irrefl H2).
+  destruct H.
+  - auto.
+  - apply not_Cle in H.
+    auto.
 Qed.
 
-Theorem anti_refl_2 : forall x y, Clt x y -> Ceq x y -> False.
+Theorem Cle_antisymmetry : forall x y, Cle x y -> Cle y x -> Ceq x y.
 Proof.
   intros x y H1 H2.
-  unfold Clt, Ceq in *.
-Abort.
-  
-Theorem anti_refl : forall x y, ~ Clt x y -> ~Clt y x -> Ceq x y.
-Proof.
-  intros x y H H0.
-  (*
-        There are three parts of this proof: dealing with monad stuff, dealing with cauchy sequence
-        stuff, and finally some proofs about rational numbers.
-        Because of the nature of the Classical monad, we need to make some choices about how to
-        instantiate some values before completing the monad stuff. Therefore, there are things like
-        (epsilon / 3) that are interspersed in the monad stuff, even though the details of that
-        value don't become relevant until later in the proof.
-   *)
-  unfold Clt in H, H0.
-  unfold Ceq.
+  unfold Cle, Ceq in *.
   intros.
-
-  apply not_and in H, H0.
+  specialize (H1 epsilon H).
+  specialize (H2 epsilon H).
   classical_auto.
-
-  (* deal with the easy cases, where we just get a proof that (Ceq x y) *)
-  destruct H0.
-  2: {
-    pbind H0.
-    apply Ceq_sym in H0.
-    exact (H0 epsilon H1).
-  }
-  destruct H.
-  2: {
-    pbind H.
-    exact (H epsilon H1).
-  }
-  
-  assert (epsilon / 2 > 0) as epspos. {
-    apply (Qmult_lt_r _ _ 2). {repeat constructor.}
-    field_simplify.
-    assumption.
-  }
-
-  assert (propx :=property x (epsilon / 2) epspos).
-  pbind propx.
-  assert (propy := property y (epsilon / 2) epspos).
-  pbind propy.
-  destruct propx as [N3 propx].
-  destruct propy as [N4 propy].
-  pbind H.
-  pbind H0.
-  
-  assert (H' := not_exists _ _ H); simpl in H'; clear H.
-  assert (H0' := not_exists _ _ H0); simpl in H0'; clear H0.
-  specialize (H' (max N3 N4)).
-  specialize (H0' (max N3 N4)).
-  apply not_forall_2 in H', H0'.
-  classical_auto.
-  
-  specialize H0' as [N1 [N1le seqN1]].
-  specialize H' as [N2 [N2le seqN2]].
-
+  specialize H1 as [N1 H1].
+  specialize H2 as  [N2 H2].
   apply Preturn.
-  exists (max N3 N4).
+  exists (max N1 N2).
   intros.
-
-  assert (propx_n_N2 := propx n N2 (Nat.max_lub_l _ _ _ H) (Nat.max_lub_l _ _ _ N2le)).
-  assert (propx_N1_n := propx N1 n (Nat.max_lub_l _ _ _ N1le) (Nat.max_lub_l _ _ _ H)).
-  assert (propy_n_N2 := propy n N1 (Nat.max_lub_r _ _ _ H) (Nat.max_lub_r _ _ _ N1le)).
-  assert (propy_N1_n := propy N2 n (Nat.max_lub_r _ _ _ N2le) (Nat.max_lub_r _ _ _ H)).
-  clear propx propy.
-
-  asreturn2 (seq x N1).
-  asreturn2 (seq y N1).
-  asreturn2 (seq x N2).
-  asreturn2 (seq y N2).
+  specialize (H1 n (Nat.max_lub_l _ _ _ H0)).
+  specialize (H2 n (Nat.max_lub_r _ _ _ H0)).
   asreturn2 (seq x n).
   asreturn2 (seq y n).
   classical_auto.
   apply Preturn.
-
-  (* At this point, the proof has been reduced to statements about rationals.
-       Does the length of the remaining proof reflect on the Rocq stdlib lacking
-       more useful theorems and tactics, or my own lack of knowledge of it? *)
-
-  assert (2 * (epsilon / 2) == epsilon) as Heps3 by field.
-  apply (Qle_trans _ (2 * (epsilon / 2)) _).
-  2: {
-    apply Qle_lteq.
-    apply or_intror.
-    assumption.
-  }
-
-
-  apply QOrder.not_gt_le in seqN1.
-  apply QOrder.not_gt_le in seqN2.
-
-  remember (epsilon / 2) as halfeps.
-
-  
-  apply Qabs_diff_Qle_condition.      
-  apply Qabs_diff_Qle_condition in propy_N1_n as [x3x5 x5x3].
-  apply Qabs_diff_Qle_condition in propy_n_N2 as [x5x1 x1x5].
-  apply Qabs_diff_Qle_condition in propx_N1_n as [x0x4 x4x0].
-  apply Qabs_diff_Qle_condition in propx_n_N2 as [x4x2 x2x4].
-
-  apply (Qplus_le_l _ _ halfeps) in x5x1, x0x4, x4x2.
-
-  
-  
-  repeat field_simplify in x5x1.
-  field_simplify in x5x1.
-  field_simplify in x0x4.
-  field_simplify in x4x2.
-  
-
+  apply Qabs_Qle_condition.
   split.
-  * apply (Qplus_le_l _ _ (2 * halfeps)).
+  - apply Qopp_le_compat2.
+    apply (Qle_trans _ (x1 - x0)). {apply Qeq_le. field.}
     field_simplify.
-    apply (Qle_trans _ _ _ x4x0).
-    apply (Qplus_le_l _ _ (- halfeps)).
-    field_simplify.
-    apply (Qle_trans _ _ _ seqN1).
-    apply (Qle_trans _ _ _ x1x5).
-    field_simplify.
-    apply Qle_refl.
-  * apply (Qle_trans _ _ _ x5x3).
-    apply (Qplus_le_l _ _ (- halfeps)).
-    field_simplify.
-    apply (Qle_trans _ _ _ seqN2).
-    apply (Qle_trans _ _ _ x2x4).
-    field_simplify.
-    apply Qle_refl.
-Qed.
-
-Theorem C_total_order : forall x y, [Clt x y \/ Ceq x y \/ Clt y x].
-Proof.
-  intros.
-  apply (Pbind (Plem (Clt x y))); intros.
-  destruct H.
-  - apply Preturn.
-    apply or_introl.
     assumption.
-  - apply (Pbind (Plem (Clt y x))); intros.
-    destruct H0.
-    + apply Preturn.
-      apply or_intror.
-      apply or_intror.
-      assumption.
-    + apply Preturn.
-      apply or_intror.
-      apply or_introl.
-      apply anti_refl; auto.
+  - assumption.
 Qed.
-
-(*
-The hard part will be the completeness property.
-See the proof in wikipedia https://en.wikipedia.org/wiki/Construction_of_the_real_numbers#Construction_from_Cauchy_sequences.
-It should be possible, it only requires LEM and I have that.
-Still, the construction creates two new cauchy sequences where each next element needs a new
-invocation of LEM. Will that be possible?
-
-I think it will work.
-Something that will be useful will be to define the propositional if thing.
-I can define the sequence by recursion over the nat input, and at each step I can use a propositional if
-on the statement that the midpoint is an upper bound of the set to determine what happens at the next step.
-*)
 
 (*
 Given a bounded set S, I need to construct a pair of sequences that converge to the lub from
@@ -1186,222 +965,6 @@ Proof.
         -- assumption.
 Qed.
 
-(*
-To prove that the sequence is cauchy, I need to show
-- for any epsilon>0, (startTop - startBot) halved some number of times is < epsilon
-- all subsequent elements of the sequence after that point are within epsilon
- *)
-Search Q Z.
-Print Qpower.
-Check Qpower_positive.
-Print positive.
-Search Qpower_positive.
-Check pow.
-Search pow.
-Search (Z -> Q).
-Search "pow" Z.
-Search Z.pow ex Z.le.
-Check Z.log2_spec_alt.
-
-
-(*
-Maybe I can do something like:
-- assume w.l.o.g. that numerator is 1
-- halving doubles the denomenator - this at least adds 1 to the denominator each time
-- so denominator after n doubles is >= n
- *)
-
-Require Import PosDef.
-
-(*
-Fixpoint double_n_times (n : nat) (z : positive) : positive :=
-  match n with
-  | O => z
-  | S n' => (double_n_times n' z) * 2
-  end.
-
-Lemma half_double_relation (n : nat) (q : Q) :
-  Qmake (Qnum (half_n_times n q))(Qden (half_n_times n q))
-  = Qmake (Qnum q) (double_n_times n (Qden q)).
-Proof.
-  induction n.
-  - simpl.
-    reflexivity.
-  - simpl.
-    inversion IHn; clear IHn.
-    destruct (half_n_times n q).
-    simpl in *.
-    apply f_equal2.
-    + ring_simplify.
-      reflexivity.
-    + reflexivity.
-Qed.
-
-Lemma some_n_big_enough (z1 z2 : positive) :
-  Pos.gt (double_n_times (Pos.to_nat (z2 - z1)) z1) z2.
-Proof.
-  Search positive nat.
-
-  remember (Pos.to_nat (z2 - z1)) as x.
-  induction x.
-  - simpl.
-    apply (f_equal Pos.of_nat) in Heqx.
-    simpl in Heqx.
-    Search Pos.of_nat Pos.to_nat.
-    rewrite Pos2Nat.id in Heqx.
-    Search Pos.sub Pos.add.
-    Check Pos2Nat.id.
-    Search Pos.sub Pos.gt.
-Abort.
-    
-Theorem test_something_like_this (q : Q) (eps : Q) :
-  exists n, half_n_times n q < eps.
-Proof.
-  Search Q Z.
-Abort.
-
-Theorem test_something_like_this_2 (q : Q) (eps : Q) :
-  ~ forall n, half_n_times n q > eps.
-Proof.
-  intros H.
-  Print Q.
-  Check Qnum.
-Abort.
- *)
-
-Fixpoint half_n_times (n : nat) (q : Q) : Q :=
-  match n with
-  | O => q
-  | S n' => (half_n_times n' q) / 2
-  end.
-
-Fixpoint double_n_times (n : nat) (q : Q) : Q :=
-  match n with
-  | O => q
-  | S n' => (double_n_times n' q) * 2
-  end.
-
-Search Z Q.
-Search Z.pow Z.lt Z.log2_up.
-Search Q "pow".
-Search Qpower.
-Print power_theory.
-Search Q nat.
-
-Fixpoint double_Z_n_times (n : nat) (z : Z) : Z :=
-  match n with
-  | O => z
-  | S n' => (double_Z_n_times n' z) * 2
-  end.
-
-Require Import IntDef.
-Search (Z -> nat).
-
-Theorem doubling_makes_it_bigger :
-  forall (x y : Z),
-    Z.le 0 x
-    -> Z.le 0 y
-  -> Z.lt y (double_Z_n_times (Z.to_nat (x - y)) (x + 1)).
-Proof.
-  intros.
-
-  remember (x - y)%Z as diff.
-  induction diff.
-  - simpl in *.
-    apply (f_equal (fun z => z + y)%Z) in Heqdiff.
-    ring_simplify in Heqdiff.
-    subst.
-    apply (Zorder.Zplus_lt_reg_r _ _ (- x)).
-    ring_simplify.
-    repeat constructor.
-  - Print positive.
-Abort.
-
-Fixpoint double_pos_n_times (n : nat) (z : positive) : positive :=
-  match n with
-  | O => z
-  | S n' => (double_pos_n_times n' z) * 2
-  end.
-
-Require Import IntDef.
-Search (Z -> nat).
-
-Search positive "pow".
-Search Pos.pow.
-
-Theorem doubling_pos_makes_it_bigger :
-  forall (x y : positive),
-  Pos.lt y (double_pos_n_times (Pos.to_nat y) x).
-Proof.
-  intros.
-  refine (Pos.peano_ind (fun y => y < double_pos_n_times (Pos.to_nat y) x)%positive
-        _ _ y).
-  - 
-    simpl in *.
-    Search Pos.add "comm".
-    Search Pos.mul "comm".
-    rewrite Pos.mul_comm.
-    simpl.
-    Print Pos.succ.
-    Print positive.
-    Search Pos.lt 1%positive xO.
-    Search Pos.lt 1%positive.
-Abort.
-
-Theorem rational_bounded_by_int :
-  forall (q : Q), exists z : Z, inject_Z z >= q.
-Proof.
-  intros.
-  destruct q.
-  exists (Z.abs Qnum).
-  unfold inject_Z.
-  unfold Qle.
-  simpl.
-  destruct (Z.nonpos_nonneg_cases Qnum).
-  - rewrite (Z.abs_neq Qnum H).
-    ring_simplify.
-    apply (Z.le_trans _ 0).
-    + assumption.
-    + apply Z.mul_nonneg_nonneg.
-      * apply Z.opp_nonneg_nonpos.
-        assumption.
-      * apply Pos2Z.pos_is_nonneg.
-  - rewrite (Z.abs_eq Qnum H).
-    apply Z.mul_le_mono_nonneg_l.
-    + assumption.
-    + assert (this := Pos2Z.pos_is_pos Qden).
-      apply Z_lt_le_off_by_one.
-      assumption.
-Qed.
-
-(*
-- For each n, the segment at (converging n) has size smaller than (1 / NattoZ n)
-- For any epsilon : Q, there is an integer Z such that epsilon < 1 / Z
- *)
-
-Theorem rational_bounded_below_int :
-  forall (q : Q), (0 < q) -> exists z : Z, (1 / inject_Z z) <= q.
-Proof.
-  intros.
-  destruct (rational_bounded_by_int (1 / q)) as [bound fact].
-  exists bound.
-  Search Qle Qmult.
-  assert (alsole := Qlt_le_weak _ _ H).
-  apply (Qmult_le_compat_r _ _ q) in fact; auto.
-  field_simplify in fact.
-  2: {
-    Search (~ (_ == _)) Qlt.
-    intros p.
-    apply Qeq_sym in p.
-    apply Qlt_not_eq in H.
-    contradiction.
-  }
-  (*apply (Qmult_le_compat_r _ _ (/(inject_Z bound))) in fact; auto.
-  Search Qle Qmult.*)
-Abort.
-
-Search (nat -> Z).
-Check converging.
 Theorem bound_size_converging_intervals :
   forall startTop startBot decide n,
     toProp (
@@ -1603,9 +1166,6 @@ Qed.
 (*
 Overall, there are many standard library theorems about powers in Z, but not in Q.
 So I need to prove things in terms of power in Z if I want to use the library theorems.
-
-I don't think I need my earlier proof about existence of an integer bound.
-I think I can prove cauchy by useing log2 in Z and this theorem.
  *)
 
 Definition converging_cauchy (startTop startBot: Q) (decide : Q -> Prop) (separateStart : startBot < startTop)
@@ -1619,6 +1179,7 @@ Definition converging_cauchy (startTop startBot: Q) (decide : Q -> Prop) (separa
       {| seq := fun n => Cbind (converging startTop startBot decide n) (fun tb =>
                          Creturn (snd tb))|}
     ).
+  (* Below are the proofs that the upper and lower sequences are cauchy. They are very repetetive with each other. *)
   - intros.
     destruct (epsilon_bound_size_converging_intervals epsilon startTop startBot decide H separateStart) as [N small].
 
@@ -1705,11 +1266,8 @@ Definition converging_cauchy (startTop startBot: Q) (decide : Q -> Prop) (separa
       assumption.
 Defined.      
     
-Check converging_cauchy.
-
 Theorem two_bounds_equal : forall startTop startBot decide
     (diff : startTop > startBot),
-(*    let (u , b) := converging_cauchy startTop startBot decide diff in*)
     let u := fst (converging_cauchy startTop startBot decide diff) in
     let b := snd (converging_cauchy startTop startBot decide diff) in
     Ceq u b.
@@ -1816,7 +1374,8 @@ Definition QinjR (q : Q) : cauchy.
   assumption.
 Defined.
 
-(* Will I need a properoty saying that S respects Ceq? *)
+(* Given a set of real numbers, makes a predicate saying that
+ a given rational is <= something in that set. *)
 Definition make_decider (S : cauchy -> Prop) (q : Q) : Prop :=
   exists r, S r /\ Cle (QinjR q) r.
 
