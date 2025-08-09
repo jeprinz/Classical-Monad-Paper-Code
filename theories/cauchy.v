@@ -365,7 +365,6 @@ Proof.
   apply Qle_refl.
 Qed.
 
-Check not_Cle_property.
 Theorem not_Cle : forall x y, ~Cle x y -> Cle y x.
 Proof.
   intros.
@@ -389,7 +388,7 @@ Proof.
   apply Qlt_le_weak in H0.
   apply (Qle_trans _ 0); auto.
 Qed.  
-    
+
 Definition Cmult (seq1 seq2 : cauchy) : cauchy.
   refine {| seq := (fun n => Cbind (seq seq1 n) (fun x =>
                             Cbind (seq seq2 n) (fun y =>
@@ -1379,8 +1378,6 @@ Defined.
 Definition make_decider (S : cauchy -> Prop) (q : Q) : Prop :=
   exists r, S r /\ Cle (QinjR q) r.
 
-
-
 Theorem is_upper_bound :
   forall (S : cauchy -> Prop) startTop startBot
          (diff : startTop > startBot)
@@ -1437,7 +1434,7 @@ Proof.
   (* the issue is that this isn't in same form.  propertyseq has fst converging_cauchy,
    while ltprop has converging, with the fst later. These are really the same thing! *)
   
-  simpl in propertyseq. (*this causes the problem of messing up Qabs*)
+  simpl in propertyseq. (* this causes the problem of unfolding Qabs. I have to re-fold it later *)
   
   asreturn2 (converging startTop startBot (make_decider S) (max N1 N2)).
   classical_auto.
@@ -1451,7 +1448,7 @@ Proof.
       intros f.
       apply ltprop.
       auto.
-    } (* LEFT OFF HERE! *)
+    }
     apply not_Cle.
     assumption.
   }
@@ -1482,7 +1479,7 @@ Proof.
   classical_auto.
   simpl fst in *.
 
-  (* This is to fold Qabs in propertyseq; for some reason fold tactic doesn't work *)
+  (* This is to fold Qabs in propertyseq; for some reason the fold tactic doesn't work *)
   assert (Qabs (uN1N2 - un) =
             Z.abs (Qnum uN1N2 * QDen un + - Qnum un * QDen uN1N2) # Qden uN1N2 * Qden un) as temp. {
     simpl.
@@ -1493,7 +1490,6 @@ Proof.
 
   apply Preturn.
 
-  Search Qabs Qle.
   apply Qabs_diff_Qle_condition in propertyr as [_ propertyr].
   apply Qabs_diff_Qle_condition in propertyseq as [propertyseq _].
   apply (bound_lemma_1 propertyr).
@@ -1503,6 +1499,140 @@ Proof.
   apply (Qplus_le_l _ _ (- 2 * epsilon / 3)).
   repeat field_simplify.
   apply (Qle_trans _ (x1 - uN1N2)). {
+    apply Qeq_le.
+    field.
+  }
+  unfold thirde in ltprop.
+  assumption.
+Qed.
+
+Theorem less_than_other_upper_bounds :
+  forall (S : cauchy -> Prop) startTop startBot
+         (diff : startTop > startBot)
+    (sbin : S (QinjR startBot))
+    (sbnotin : forall r, S r -> ~ Cle (QinjR startTop) r)
+    (otherbound : cauchy)
+    (otherboundprop : forall r, S r -> Cle r otherbound),
+    let l := snd (converging_cauchy startTop startBot (make_decider S) diff) in
+    Cle l otherbound.
+Proof.
+  intros.
+  unfold Cle.
+  intros.
+  simpl.
+  
+  assert ((make_decider S) startBot) as decidebot. {
+    unfold make_decider.
+    exists (QinjR startBot).
+    intros.
+    split.
+    - assumption.
+    - apply Ceq_Cle.
+      apply Ceq_refl.
+  }
+  assert (~ (make_decider S) startTop) as decidetop. {
+    unfold make_decider.
+    intros [r' [Sr' ler']].
+    specialize (sbnotin r' Sr').
+    contradiction.
+  }
+  clear sbin sbnotin.
+  
+  pose (thirde := Qdiv epsilon 3).
+  assert (thirde > 0) as Ht. {
+    apply Qmult_lt_0_compat.
+    - assumption.
+    - apply Qinv_lt_0_compat.
+      repeat constructor.
+  }
+
+  assert (propertyb := property otherbound thirde Ht).
+  assert (propertyseq := property (snd (converging_cauchy startTop startBot (make_decider S) diff))
+                                  thirde Ht).
+  (*destruct (epsilon_bound_size_converging_intervals epsilon startTop startBot
+                                                    (make_decider S) H diff) as [N2 lemma].*)
+  classical_auto.
+  specialize propertyb as [N1 propertyb].
+  specialize propertyseq as [N2 propertyseq].
+
+  assert (ltprop := top_bottom_decide startTop startBot
+                                      (make_decider S) (max N1 N2) diff decidetop decidebot).
+  (* at this point in the proof, I should be able to know that ui <= r.
+     That is what ltprop is supposed to be, but it doesn't seem to work right? *)
+
+  specialize (propertyseq (max N1 N2)).
+  (* the issue is that this isn't in same form.  propertyseq has fst converging_cauchy,
+   while ltprop has converging, with the fst later. These are really the same thing! *)
+  
+  simpl in propertyseq. (* this causes the problem of unfolding Qabs. I have to re-fold it later *)
+  
+  asreturn2 (converging startTop startBot (make_decider S) (max N1 N2)).
+  classical_auto.
+  unfold make_decider in ltprop.
+  specialize ltprop as [ltprop _].
+  assert (exists r, S r /\ Cle (QinjR (snd x)) r) as temp. {
+    intros.
+    destruct ltprop as [r [Sr lexr]].
+    exists r.
+    auto.
+  }
+  clear ltprop; rename temp into ltprop.
+  specialize ltprop as [r [Sr ltprop]].
+
+  specialize (otherboundprop r Sr).
+  classical_auto.
+  apply (Cle_trans _ _ _ ltprop) in otherboundprop.
+  clear ltprop.
+  rename otherboundprop into ltprop.
+
+  (***********************)
+  
+  unfold Cle in ltprop.
+  specialize (ltprop thirde Ht).
+  classical_auto.
+  specialize ltprop as [N3 ltprop].
+
+  apply Preturn.
+  exists (max (max N1 N2) N3).
+  intros.
+  specialize (ltprop (max (max N1 N2) N3) (Nat.max_lub_r _ _ _ (Nat.le_refl _))).
+  specialize (propertyseq n (Nat.max_lub_r _ _ _ (Nat.le_refl _))
+             (Nat.max_lub_r _ _ _ (Nat.max_lub_l _ _ _ H0))).
+  specialize (propertyb (max (max N1 N2) N3) n
+                        (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ (Nat.le_refl _)))
+                        (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ H0))).
+  asreturn2 (converging startTop startBot (make_decider S) n).
+  asreturn2 (seq otherbound (max (max N1 N2) N3)).
+  asreturn2 (seq otherbound n).
+  simpl in ltprop.
+
+  destruct x as [uN1N2 bN1N2].
+  destruct x0 as [un bn].
+  clear l.
+  simpl snd in *.
+  classical_auto.
+  simpl snd in *.
+  
+  (* This is to fold Qabs in propertyseq; for some reason the fold tactic doesn't work *)
+  assert (Qabs (bN1N2 - bn) =
+            Z.abs (Qnum bN1N2 * QDen bn + - Qnum bn * QDen bN1N2) # Qden bN1N2 * Qden bn ) as temp. {
+    simpl.
+    reflexivity.
+  }
+  rewrite <- temp in propertyseq.
+  clear temp.
+
+  apply Preturn.
+
+  apply Qabs_diff_Qle_condition in propertyb as [propertyr _].
+  apply Qabs_diff_Qle_condition in propertyseq as [_ propertyseq].
+  apply (bound_lemma_1 propertyseq).
+  apply (bound_lemma_2 propertyr).
+  unfold thirde.
+  field_simplify.
+  apply (Qplus_le_l _ _ (- 2 * epsilon / 3)).
+  repeat field_simplify.
+  apply (Qle_trans _ (bN1N2 - x1)). {
     apply Qeq_le.
     field.
   }
