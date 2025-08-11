@@ -1639,3 +1639,64 @@ Proof.
   unfold thirde in ltprop.
   assumption.
 Qed.
+
+(*Definition real_rational_bounds :
+  cauchy -> CQ * CQ.*)
+  
+
+Theorem real_bounded_above_rational :
+  forall r, [exists q, Cle r (QinjR q)].
+Proof.
+  intros.
+  assert (0 < 1) as indeed. {
+    repeat constructor.
+  }
+  assert (prop := property r 1 indeed).
+  classical_auto.
+  specialize prop as [N prop].
+  assert (q := seq r N).
+  unfold CQ in q.
+  classical_auto.
+  apply Preturn.
+Admitted.
+
+(*
+I want a principle that says that if we have (f : A -> B), and
+forall a1 a2, f a1 = f a2, and we have [A], then we get [[B]].
+*)
+
+Definition lub (S : cauchy -> Prop) (nonempty : [exists r, S r])
+           (bounded : [exists b, forall r, S r -> Cle b r])
+  : cauchy.
+  Check converging_cauchy.
+Abort.
+
+(*
+Would it be acceptable if our least upper bound property was something like:
+
+[exists r, "r is upper bound" /\ "r is least"]?
+
+rather than
+lub : S .... -> cauchy
+theorem : ["lub S is least upper bound"]
+
+I think no, otherwise what is the point of the [[]] monad in general?
+Thats like saying I could just use [], and
+plus : forall x y : R, [exists z, <some property>]
+
+
+
+Do I expect to be able to define a function
+rat_above_real : R -> [[Q]]
+such that
+forall r, toProp (Cbind (rat_above_real r) (fun q => Cle r (QinjR q)))
+?????
+
+Surely this is possible. For example, "the smallest integer > r" is a uniquely defined thing.
+It definitely exists and is unique, so I should be able to use the principle of
+definite description.
+
+
+If I had a quotient for cauchy sequences, then I could also use the fact that least upper bounds
+are by definition unique to be able to get a unique value under [[]].
+*)
