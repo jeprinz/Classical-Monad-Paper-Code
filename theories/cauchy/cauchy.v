@@ -387,7 +387,7 @@ Proof.
   field_simplify (x0 - x0) in fact.
   apply Qlt_le_weak in H0.
   apply (Qle_trans _ 0); auto.
-Qed.  
+Qed.
 
 Definition Cmult (seq1 seq2 : cauchy) : cauchy.
   refine {| seq := (fun n => Cbind (seq seq1 n) (fun x =>
@@ -1373,6 +1373,127 @@ Definition QinjR (q : Q) : cauchy.
   assumption.
 Defined.
 
+Theorem Qle_Cle: forall q1 q2, Qle q1 q2 -> Cle (QinjR q1) (QinjR q2).
+Proof.
+  intros.
+  unfold Cle.
+  intros.
+  apply Preturn.
+  exists 0%nat.
+  intros.
+  simpl.
+  classical_auto.
+  apply Preturn.
+  apply (Qle_trans _ 0).
+  + apply (Qplus_le_l _ _ q2).
+    field_simplify.
+    assumption.
+  + apply Qlt_le_weak.
+    assumption.
+Qed.
+
+Theorem Q_not_eq_lemma : forall x y : Q, ~ (x == y) -> [Qabs (x - y) > 0].
+Proof.
+  intros.
+  assert (~ (x - y) == 0). {
+    intros p.
+    apply H.
+    apply (Qplus_inj_r _ _ y) in p.
+    field_simplify in p.
+    assumption.
+  }
+  apply (Pbind (Plem (0 < Qabs (x - y)))); intros.
+  destruct H1.
+  - apply Preturn.
+    assumption.
+  - Search not Qlt.
+    apply Qnot_lt_le in H1.
+    apply Qabs_Qle_condition in H1.
+    Search Qle Qeq.
+    destruct H1.
+    field_simplify in H1.
+    Check QOrder.le_antisym.
+    assert (reverse := @QOrder.le_antisym _ _ H1 H2).
+    apply Qeq_sym in reverse.
+    contradiction.
+Qed.
+
+Theorem Qnot_eq_decide : forall x y, ~(x == y) -> [x < y \/ y < x].
+Proof.
+  intros.
+  apply (Pbind (Plem (x < y))); intros.
+  destruct H0.
+  - apply Preturn.
+    apply or_introl.
+    assumption.
+  - apply QOrder.not_gt_le in H0.
+    apply Qnot_eq_sym in H.
+    apply Preturn.
+    apply or_intror.
+    apply (@QOrder.le_neq_lt _ _ H0 H).
+Qed.
+
+Theorem Ceq_Qeq : forall q1 q2, Ceq (QinjR q1) (QinjR q2) -> [q1 == q2].
+Proof.
+  intros.
+  (* Proof by contradiction *)
+  apply (Pbind (Plem (q1 == q2))); intros.
+  destruct H0.
+  - apply Preturn.
+    assumption.
+  - 
+    unfold Ceq in H.
+    simpl seq in H.
+    assert (gt0 := Q_not_eq_lemma _ _ H0).
+    classical_auto.
+    assert ((Qabs (q1 - q2)) / 2 > 0) as pos. {
+      apply (Qmult_lt_r _ _ 2). {repeat constructor.}
+      field_simplify.
+      assumption.
+    }
+    assert (~ (Qabs (q1 - q2) == 0)) as nonzero. {
+      apply Qnot_eq_sym.
+      apply Qlt_not_eq.
+      assumption.
+    }
+    specialize (H ((Qabs (q1 - q2)) / 2) pos).
+    classical_auto.
+    specialize H as [N H].
+    specialize (H N (Nat.le_refl _)).
+    classical_auto.
+    exfalso.
+    apply (Qmult_le_r _ _ (/ (Qabs (q1 - q2)))) in H.
+    2: {
+      apply Qinv_lt_0_compat.
+      assumption.
+    }
+    field_simplify in H; auto.
+Qed.
+      
+
+
+Theorem Cle_Qle : forall q1 q2, Cle (QinjR q1) (QinjR q2) -> [Qle q1 q2].
+Proof.
+  intros.
+  apply (Pbind (Plem (q1 <= q2))); intros.
+  destruct H0.
+  - apply Preturn.
+    assumption.
+  - assert (~ (Ceq (QinjR q1) (QinjR q2))). {
+      intros eq.
+      apply Ceq_Qeq in eq.
+      apply classical_consistent.
+      classical_auto.
+      apply Qeq_le in eq.
+      contradiction.
+    }
+    apply Qnot_le_lt in H0.
+    apply Qlt_le_weak in H0.
+    apply Qle_Cle in H0.
+    assert (fact := Cle_antisymmetry _ _ H H0).
+    contradiction.
+Qed.
+
 (* Given a set of real numbers, makes a predicate saying that
  a given rational is <= something in that set. *)
 Definition make_decider (S : cauchy -> Prop) (q : Q) : Prop :=
@@ -1642,7 +1763,47 @@ Qed.
 
 (*Definition real_rational_bounds :
   cauchy -> CQ * CQ.*)
-  
+
+Theorem rational_bounded_by_int :
+  forall (q : Q), exists z : Z, inject_Z z >= q.
+Proof.
+  intros.
+  destruct q.
+  exists (Z.abs Qnum).
+  unfold inject_Z.
+  unfold Qle.
+  simpl.
+  destruct (Z.nonpos_nonneg_cases Qnum).
+  - rewrite (Z.abs_neq Qnum H).
+    ring_simplify.
+    apply (Z.le_trans _ 0).
+    + assumption.
+    + apply Z.mul_nonneg_nonneg.
+      * apply Z.opp_nonneg_nonpos.
+        assumption.
+      * apply Pos2Z.pos_is_nonneg.
+  - rewrite (Z.abs_eq Qnum H).
+    apply Z.mul_le_mono_nonneg_l.
+    + assumption.
+    + assert (this := Pos2Z.pos_is_pos Qden).
+      apply Z_lt_le_off_by_one.
+      assumption.
+Qed.
+
+Definition real_int_bound (r : cauchy) : [[| Z |]].
+  refine (exist _ (fun z => Cle r (QinjR (inject_Z z)) /\
+                              forall z', (Cle r (QinjR (inject_Z z))) -> Z.le z z') _).
+  split.
+  (* existence *)
+  - Check (property r).
+    assert (0 < 1) as lt01 by repeat constructor.
+    assert (prop := property r 1 lt01).
+    classical_auto.
+    specialize prop as [N prop].
+    apply Preturn.
+    (*Check (Cbind (seq r N) (fun rN => Creturn (rational_bounded_by_int rN))).*)
+  (* uniqueness *)
+Abort.
 
 Theorem real_bounded_above_rational :
   forall r, [exists q, Cle r (QinjR q)].
@@ -1654,21 +1815,192 @@ Proof.
   assert (prop := property r 1 indeed).
   classical_auto.
   specialize prop as [N prop].
-  assert (q := seq r N).
-  unfold CQ in q.
+  assert (fact := proj2_sig (seq r N)).
+  specialize fact as [rNexists rnUnique].
   classical_auto.
+  specialize rNexists as [q qIsRn].
   apply Preturn.
-Admitted.
+  exists (q + 1).
+  unfold Cle.
+  intros.
+  apply Preturn.
+  exists N.
+  intros.
+  specialize (prop N n (Nat.le_refl _) H0).
+  asreturn2 (seq r N).
+  asreturn2 (seq r n).
+  simpl.
+  classical_auto.
+  simpl in qIsRn.
+  subst.
+  apply Preturn.
+  apply (Qle_trans _ 0).
+  2: {
+    apply Qlt_le_weak.
+    assumption.
+  }
+  field_simplify.
+  apply (Qplus_le_l _ _ 1).
+  field_simplify.
+  apply Qabs_Qle_condition in prop as [prop _].
+  apply Qopp_le_compat in prop.
+  apply (fun e => Qle_trans _ _ _ e prop).
+  apply Qeq_le.
+  field.
+Qed.
+
+Theorem real_bounded_below_rational :
+  forall r, [exists q, Cle (QinjR q) r].
+Proof.
+  intros.
+  assert (0 < 1) as indeed. {
+    repeat constructor.
+  }
+  assert (prop := property r 1 indeed).
+  classical_auto.
+  specialize prop as [N prop].
+  assert (fact := proj2_sig (seq r N)).
+  specialize fact as [rNexists rnUnique].
+  classical_auto.
+  specialize rNexists as [q qIsRn].
+  apply Preturn.
+  exists (q - 1).
+  unfold Cle.
+  intros.
+  apply Preturn.
+  exists N.
+  intros.
+  specialize (prop N n (Nat.le_refl _) H0).
+  asreturn2 (seq r N).
+  asreturn2 (seq r n).
+  simpl.
+  classical_auto.
+  simpl in qIsRn.
+  subst.
+  apply Preturn.
+  apply (Qle_trans _ 0).
+  2: {
+    apply Qlt_le_weak.
+    assumption.
+  }
+  field_simplify.
+  apply (Qplus_le_l _ _ 1).
+  field_simplify.
+  apply Qabs_Qle_condition in prop as [_ prop].
+  apply (Qle_trans _ _ _ prop).
+  apply Qle_refl.
+Qed.
 
 (*
 I want a principle that says that if we have (f : A -> B), and
 forall a1 a2, f a1 = f a2, and we have [A], then we get [[B]].
-*)
+ *)
 
+Theorem lub_but_its_only_a_prop (S : cauchy -> Prop) (nonempty : [exists r, S r])
+        (bounded : [exists b, forall r, S r -> Cle r b])
+  : [exists lub : cauchy, (forall r, S r -> Cle r lub)
+                          /\ forall otherbound, (forall r, S r -> Cle r otherbound)
+                                                -> Cle lub otherbound].
+Proof.
+  classical_auto.
+  specialize bounded as [upperboundR upperboundproperty].
+  specialize nonempty as [r rInS].
+  Check real_bounded_above_rational.
+  assert (rationalbound := real_bounded_above_rational upperboundR).
+  classical_auto.
+  specialize rationalbound as [upperboundQ QgtR].
+
+  assert (lowerboundQ := real_bounded_below_rational r).
+  classical_auto.
+  specialize lowerboundQ as [lowerboundQ QltR].
+
+  assert ([lowerboundQ <= upperboundQ]) as boundsle. {
+    specialize (upperboundproperty r rInS).
+    apply Cle_Qle.
+    apply (Cle_trans _ _ _ (Cle_trans _ _ _ QltR upperboundproperty) QgtR).
+  }
+  classical_auto.
+  assert (upperboundQ < upperboundQ + 1) as fact1. {
+      apply (Qplus_lt_l _ _ (-upperboundQ)).
+      field_simplify.
+      repeat constructor.
+  }
+  assert (lowerboundQ < upperboundQ + 1) as boundsapart. {
+    apply (Qle_lt_trans _ upperboundQ); assumption.
+  }
+  pose (ub := converging_cauchy (upperboundQ + 1) lowerboundQ (make_decider S) boundsapart).
+
+  assert (exists r, S r /\ Cle (QinjR lowerboundQ) r) as isGoodLowerBound. {
+    exists r.
+    split; auto.
+  }
+
+  assert ((forall r : cauchy,
+     (exists r0 : cauchy, S r0 /\ Cle r r0) ->
+     ~ Cle (QinjR (upperboundQ + 1)) r)) as isGoodUpperBound. {
+    intros r0 [r1 [Sr1 ler0r1]] bad.
+    specialize (upperboundproperty r1 Sr1).
+    apply (Cle_trans _ _ _ ler0r1) in upperboundproperty.
+    apply (Cle_trans _ _ _ upperboundproperty) in QgtR.
+    apply (Cle_trans _ _ _ bad) in QgtR.
+    apply Cle_Qle in QgtR.
+    apply classical_consistent.
+    classical_auto.
+    apply (Qplus_le_l _ _ (-upperboundQ)) in QgtR.
+    field_simplify in QgtR.
+    unfold Qle, BinInt.Z.le in QgtR.
+    simpl in QgtR.
+    apply Preturn.
+    apply QgtR.
+    reflexivity.
+  }
+    
+  assert (is_bound := is_upper_bound (fun r' => exists r, S r /\ Cle r' r)
+                                 (upperboundQ + 1) lowerboundQ boundsapart
+                                 isGoodLowerBound isGoodUpperBound).
+  
+  assert (is_least := less_than_other_upper_bounds (fun r' => exists r, S r /\ Cle r' r)
+                                      (upperboundQ + 1) lowerboundQ boundsapart
+                                      isGoodLowerBound isGoodUpperBound).
+
+  assert (bounds_equal := two_bounds_equal (upperboundQ + 1) lowerboundQ
+        (make_decider (fun r' => exists r, S r /\ Cle r' r)) boundsapart).
+
+  apply Preturn.
+
+  exists (fst ((converging_cauchy (upperboundQ + 1) lowerboundQ
+                                  (make_decider (fun r' : cauchy => exists r : cauchy, S r /\ Cle r' r)) boundsapart))).
+  split.
+  - intros r0 Sr0.
+    assert (exists r : cauchy, S r /\ Cle r0 r) as temp. {
+      exists r0.
+      split; auto.
+      Search (Cle _ _).
+      apply Ceq_Cle.
+      apply Ceq_refl.
+    }
+    simpl in is_bound.
+          
+    specialize (is_bound r0 temp).
+    assumption.
+  - intros.
+    specialize (is_least otherbound).
+    assert (forall r : cauchy,
+               (exists r0 : cauchy, S r0 /\ Cle r r0) -> Cle r otherbound) as temp. {
+      intros r0 [r1 [Sr1 ler0r1]].
+      specialize (H r1 Sr1).
+      apply (Cle_trans _ r1); auto.
+    }
+    specialize (is_least temp).
+    Check Ceq_Cle.
+    apply (Cle_trans _ _ _ (Ceq_Cle _ _ bounds_equal) is_least).
+Qed.
+  
 Definition lub (S : cauchy -> Prop) (nonempty : [exists r, S r])
            (bounded : [exists b, forall r, S r -> Cle b r])
   : cauchy.
   Check converging_cauchy.
+  
 Abort.
 
 (*
