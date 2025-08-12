@@ -2454,7 +2454,71 @@ Proof.
     exists n.
     intros.*)
     
+Lemma property_needed_for_Cinv epsilon bound1 bound2 x0 x1
+      (bound1pos : 0 < bound1)
+      (bound2pos : 0 < bound2)
+      (prop : Qabs (x0 - x1) <= epsilon * bound1 * bound2)
+      (apart1 : bound1 <= Qabs (0 - x0))
+      (apart2 : bound2 <= Qabs (0 - x1))
+  : Qabs (1 / x0 - 1 / x1) <= epsilon.
+Proof.
+  
+  apply (fun x => Qle_trans _ _ _ x (Qeq_le (Qeq_sym _ _ (Qabs_opp _)))) in apart2, apart1.
+  field_simplify (- (0 - x1)) in apart2.
+  field_simplify (- (0 - x0)) in apart1.
 
+  assert (0 < Qabs x0) as x0pos by apply (Qlt_le_trans _ _ _ bound1pos apart1).
+  assert (~ x0 == 0) as x0nonzero
+      by (apply Q_not_eq_lemma_3; auto).
+  assert (0 < Qabs x1) as x1pos by apply (Qlt_le_trans _ _ _ bound2pos apart2).
+  assert (~ x1 == 0) as x1nonzero by apply (Q_not_eq_lemma_3 _ x1pos).
+  assert (1 / x0 - 1 / x1 == (x1 - x0) / (x0 * x1)) by (field; auto).
+  assert (~ bound1 == 0) as bound1nonzero. {
+    apply Qnot_eq_sym.
+    apply Qlt_not_eq.
+    assumption.
+  }
+  assert (~ bound2 == 0) as bound2nonzero. {
+    apply Qnot_eq_sym.
+    apply Qlt_not_eq.
+    assumption.
+  }
+
+  apply (Qle_trans _ _ _ (Qeq_le (Qabs_wd _ _ H))).
+  unfold Qdiv.
+  apply (Qle_trans _ _ _ (Qeq_le (Qabs_Qmult _ _))).
+  
+  apply (Qle_trans _ _ _ (Qeq_le (Qabs_opp _))) in prop.
+  field_simplify (- (x0 - x1)) in prop.
+  apply (Qle_trans _ _ _ (Qeq_le (Qabs_wd _ _(Qplus_comm _ _)))) in prop.
+  
+  apply (Qle_trans _ ((epsilon * bound1 * bound2) * (/ (bound1 * bound2)))).
+  - apply Qmult_compat.
+    + apply Qabs_nonneg.
+    + apply Qabs_nonneg.
+    + assumption.
+    + apply (Qle_compat (Qabs_Qinv _) (Qeq_refl _)).
+      apply (Qle_trans _ _ _ (Qeq_le (Qinv_comp _ _(Qabs_Qmult _ _)))).
+      assert (Qabs x0 * Qabs x1 > 0). {
+        apply Qmult_lt_0_compat; auto.
+      }
+      assert (bound1 * bound2 > 0) by (apply Qmult_lt_0_compat; auto).
+      apply (Qmult_le_l _ _ (Qabs x0 * Qabs x1)); auto.
+      apply (Qmult_le_l _ _ (bound1 * bound2)); auto.
+      field_simplify; auto.
+      2: {
+        split;
+        apply Qnot_eq_sym;
+        apply Qlt_not_eq;
+        assumption.
+      }
+      assert (bound1nonneg := Qlt_le_weak _ _ bound1pos).
+      assert (bound2nonneg := Qlt_le_weak _ _ bound2pos).
+      apply Qmult_compat; auto.
+  - field_simplify.
+    + apply Qle_refl.
+    + split; assumption.
+Qed.
 
 Definition Cinv (x : cauchy) (nonzero : ~ (Ceq x Czero)) : cauchy.
   refine {| seq := (fun n => Cbind (seq x n) (fun xn =>
@@ -2464,14 +2528,6 @@ Definition Cinv (x : cauchy) (nonzero : ~ (Ceq x Czero)) : cauchy.
   assert (apart := apart_property _ _ nonzero).
   classical_auto.
   specialize apart as [bound [boundpos [N1 apart]]].
-  (* find epsilon from above lemma, and plug in 1 / epsilon into this property *)
-  (*assert (epsilon / bound > 0) as thingpos. {
-    apply (Qmult_lt_l _ _ bound boundpos).
-    field_simplify; auto.
-    apply Qnot_eq_sym.
-    apply Qlt_not_eq.
-    assumption.
-  }*)
   assert (epsilon * bound * bound > 0) as thingpos. {
     apply Qmult_lt_0_compat; auto.
     apply Qmult_lt_0_compat; auto.
@@ -2498,59 +2554,49 @@ Definition Cinv (x : cauchy) (nonzero : ~ (Ceq x Czero)) : cauchy.
   classical_auto.
   apply Preturn.
 
-  apply (fun x => Qle_trans _ _ _ x (Qeq_le (Qeq_sym _ _ (Qabs_opp _)))) in apart2, apart1.
-  field_simplify (- (0 - x1)) in apart2.
-  field_simplify (- (0 - x0)) in apart1.
+  apply (property_needed_for_Cinv epsilon bound bound x0 x1 boundpos boundpos xprop apart1 apart2).
+Defined.
 
-  assert (0 < Qabs x0) as x0pos by apply (Qlt_le_trans _ _ _ boundpos apart1).
-  assert (~ x0 == 0) as x0nonzero
-      by (apply Q_not_eq_lemma_3; auto).
-  assert (0 < Qabs x1) as x1pos by apply (Qlt_le_trans _ _ _ boundpos apart2).
-  assert (~ x1 == 0) as x1nonzero by apply (Q_not_eq_lemma_3 _ x1pos).
-  assert (1 / x0 - 1 / x1 == (x1 - x0) / (x0 * x1)) by (field; auto).
-  assert (~ bound == 0) as boundnonzero. {
-    apply Qnot_eq_sym.
-    apply Qlt_not_eq.
-    assumption.
+Theorem Cinv_respects_cauchy : forall x y H1 H2,
+    Ceq x y -> Ceq (Cinv x H1) (Cinv y H2).
+Proof.
+  intros.
+  unfold Ceq.
+  intros.
+  unfold Ceq in H.
+  simpl (seq (Cinv _ _) _).
+  assert (apartx := apart_property _ _ H1).
+  assert (aparty := apart_property _ _ H2).
+
+
+  classical_auto.
+  specialize apartx as [epsilon1 [eps1pos [N1 apartx]]].
+  specialize aparty as [epsilon2 [eps2pos [N2 aparty]]].
+    assert (epsilon * epsilon1 * epsilon2 > 0) as thingpos. {
+    apply Qmult_lt_0_compat; auto.
+    apply Qmult_lt_0_compat; auto.
   }
+  specialize (H (epsilon * epsilon1 * epsilon2) thingpos).
+  classical_auto.
+  specialize H as [N3 H].
 
-  apply (Qle_trans _ _ _ (Qeq_le (Qabs_wd _ _ H2))).
-  unfold Qdiv.
-  apply (Qle_trans _ _ _ (Qeq_le (Qabs_Qmult _ _))).
+  apply Preturn.
+  exists (max (max N1 N2) N3).
+  intros.
 
-  apply (Qle_trans _ _ _ (Qeq_le (Qabs_opp _))) in xprop.
-  field_simplify (- (x0 - x1)) in xprop.
-  apply (Qle_trans _ _ _ (Qeq_le (Qabs_wd _ _(Qplus_comm _ _)))) in xprop.
+  specialize (H n (Nat.max_lub_r _ _ _ H3)).
+  specialize (apartx n (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ H3))).
+  specialize (aparty n (Nat.max_lub_r _ _ _ (Nat.max_lub_l _ _ _ H3))).
   
-  apply (Qle_trans _ ((epsilon * bound * bound) * (/ (bound * bound)))).
-  - apply Qmult_compat.
-    + apply Qabs_nonneg.
-    + apply Qabs_nonneg.
-    + assumption.
-    + apply (Qle_compat (Qabs_Qinv _) (Qeq_refl _)).
-      apply (Qle_trans _ _ _ (Qeq_le (Qinv_comp _ _(Qabs_Qmult _ _)))).
-      assert (Qabs x0 * Qabs x1 > 0). {
-        apply Qmult_lt_0_compat; auto.
-      }
-      assert (bound * bound > 0) by (apply Qmult_lt_0_compat; auto).
-      apply (Qmult_le_l _ _ (Qabs x0 * Qabs x1)); auto.
-      apply (Qmult_le_l _ _ (bound * bound)); auto.
-      field_simplify; auto.
-      2: {
-        split;
-        apply Qnot_eq_sym;
-        apply Qlt_not_eq;
-        assumption.
-      }
-      assert (boundnonneg := Qlt_le_weak _ _ boundpos).
-      apply Qmult_compat; auto.
-  - field_simplify.
-    + apply Qle_refl.
-    + apply Qnot_eq_sym.
-      apply Qlt_not_eq.
-      assumption.
-Defined.    
-  
+  simpl (seq Czero _) in apartx, aparty.
+  asreturn2 (seq x n).
+  asreturn2 (seq y n).
+  classical_auto.
+  apply Preturn.
+
+  apply (property_needed_for_Cinv epsilon epsilon1 epsilon2
+                                  x0 x1 eps1pos eps2pos H apartx aparty).
+Defined.
   
 (* The only axioms used are functional and propositional extensionality, as this command shows: *)
 Definition all_definitions :=
