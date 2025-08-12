@@ -120,6 +120,27 @@ Proof.
      field_simplify.
      repeat constructor.
 Qed.
+
+Lemma Qabs2Plus1 : forall x y, 0 < (Qabs x) + (Qabs y) + 1.
+Proof.
+  intros.
+  apply (Qle_lt_trans _ (Qabs x)).
+  - apply Qabs_nonneg.
+  - Search Qplus Qlt.
+     apply (Qplus_lt_l _ _ (- (Qabs x))).
+     field_simplify.
+     apply QabsPlus1.
+Qed.
+
+Lemma add_a_Qabs : forall x y z, x <= y -> x <= Qabs z + y.
+Proof.
+  intros.
+  apply (Qle_trans _ y).
+  - assumption.
+  - apply (Qplus_le_l _ _ (-y)).
+    field_simplify.
+    apply Qabs_nonneg.
+Qed.
       
 Lemma Qeq_le : forall {x y}, Qeq x y -> Qle x y.
 Proof.
@@ -285,6 +306,88 @@ Proof.
   assumption.
 Qed.
 
+Theorem not_Cle_property_strong : forall x y,
+    ~ (Cle x y) ->
+    [exists epsilon, epsilon > 0 /\ exists N : nat, forall n, le N n -> toProp (
+     Cbind (seq x n) (fun xn =>
+     Cbind (seq y n) (fun yn =>
+     Creturn (yn + epsilon <= xn))))]. (* I think this could be < *)
+Proof.
+  intros.
+  unfold Cle in H.
+  apply not_forall_2 in H.
+  pbind H.
+  specialize H as [epsilon [epspos H]].
+  assert (H' := not_exists _ _ H).
+  clear H.
+  rename H' into H.
+  simpl in H.
+
+  assert (epsilon / 3 > 0) as hepspos. {
+    apply (Qmult_lt_r _ _ 3). {repeat constructor.}
+    field_simplify.
+    assumption.
+  }
+  
+  assert (propx :=property x (epsilon / 3) hepspos).
+  pbind propx.
+  assert (propy := property y (epsilon / 3) hepspos).
+  pbind propy.
+  destruct propx as [N1 propx].
+  destruct propy as [N2 propy].
+  specialize (H (max N1 N2)).
+
+  apply not_forall_2 in H.
+  pbind H.
+  specialize H as [N3 [N3le seqN3]].
+
+  apply Preturn.
+  exists (epsilon / 3).
+  split; auto.
+  exists (max N1 N2).
+  intros.
+
+  specialize (propx N3 n (Nat.max_lub_l _ _ _ N3le) (Nat.max_lub_l _ _ _ H)).
+  specialize (propy N3 n (Nat.max_lub_r _ _ _ N3le) (Nat.max_lub_r _ _ _ H)).
+
+  asreturn2 (seq x n).
+  asreturn2 (seq y n).
+  asreturn2 (seq y N3).
+  asreturn2 (seq x N3).
+  classical_auto.
+  apply Preturn.
+
+  apply Qnot_le_lt in seqN3.
+  apply Qabs_Qle_condition in propy as [propy _].
+  apply Qabs_Qle_condition in propx as [_ propx].
+
+
+  apply (Qplus_le_l _ _ (x1 + (epsilon / 3))) in propy.
+  repeat field_simplify in propy.
+
+  apply (Qplus_le_l _ _ (-epsilon / 3)).
+  repeat field_simplify.
+  apply (Qle_trans _ _ _ propy).
+
+  apply Qlt_le_weak in seqN3.
+  apply (Qplus_le_l _ _ (x2 - epsilon )) in seqN3.
+  field_simplify in seqN3.
+  apply (Qplus_le_l _ _ (- epsilon / 3)).
+  repeat field_simplify.
+
+  apply (Qle_trans _ _ _ seqN3).
+
+  apply (Qplus_le_l _ _ epsilon).
+  field_simplify.
+
+  apply (Qplus_le_l _ _ x0) in propx.
+  repeat field_simplify in propx.
+  apply (Qle_trans _ _ _ propx).
+  field_simplify.
+  apply Qle_refl.
+Qed.
+
+(* TODO: prove this in terms of the strong version above instead of just repeating the proof *)
 Theorem not_Cle_property : forall x y,
     ~ (Cle x y) ->
     [exists N : nat, forall n, le N n -> toProp (
@@ -804,6 +907,17 @@ Proof.
     field_simplify.
     assumption.
   - assumption.
+Qed.
+
+Theorem Ceq_trans : forall x y z, Ceq x y -> Ceq y z -> Ceq x z.
+Proof.
+  intros.
+  assert (Ceq y x) by (apply Ceq_sym; auto). 
+  assert (Ceq z y) by (apply Ceq_sym; auto).
+  apply Ceq_Cle in H, H0, H1, H2.
+  apply Cle_antisymmetry;
+  apply (Cle_trans _ y);
+  auto.
 Qed.
 
 (*
@@ -1418,6 +1532,27 @@ Proof.
     contradiction.
 Qed.
 
+Theorem Q_not_eq_lemma_2 : forall x y : Q, Qabs (x - y) > 0 -> ~ x == y.
+Proof.
+  intros.
+  intros p.
+  Search Qeq Qabs 0%Q.
+  Search Qeq Qplus.
+  apply (Qplus_inj_r _ _ (-y)) in p.
+  field_simplify in p.
+  apply Qabs_wd in p.
+  apply (fun x => Qlt_le_trans _ _ _ x (Qeq_le p)) in H.
+  inversion H.
+Qed.
+
+Theorem Q_not_eq_lemma_3 : forall x : Q, Qabs x > 0 -> ~ x == 0.
+Proof.
+  intros.
+  apply Q_not_eq_lemma_2.
+  field_simplify (x - 0).
+  assumption.
+Qed.
+
 Theorem Qnot_eq_decide : forall x y, ~(x == y) -> [x < y \/ y < x].
 Proof.
   intros.
@@ -1805,6 +1940,9 @@ Definition real_int_bound (r : cauchy) : [[| Z |]].
   (* uniqueness *)
 Abort.
 
+
+(* TODO: I can use this to simplify the definition of Cmult,
+ instead in that definition I build in bound1 and bound2 *)
 Theorem real_bounded_above_rational :
   forall r, [exists q, Cle r (QinjR q)].
 Proof.
@@ -1995,13 +2133,6 @@ Proof.
     Check Ceq_Cle.
     apply (Cle_trans _ _ _ (Ceq_Cle _ _ bounds_equal) is_least).
 Qed.
-  
-Definition lub (S : cauchy -> Prop) (nonempty : [exists r, S r])
-           (bounded : [exists b, forall r, S r -> Cle b r])
-  : cauchy.
-  Check converging_cauchy.
-  
-Abort.
 
 (*
 Would it be acceptable if our least upper bound property was something like:
@@ -2032,3 +2163,411 @@ definite description.
 If I had a quotient for cauchy sequences, then I could also use the fact that least upper bounds
 are by definition unique to be able to get a unique value under [[]].
 *)
+
+Theorem plus_respects_cauchy_lemma : forall a a' b, Ceq a a' -> Ceq (Cplus a b) (Cplus a' b).
+Proof.
+  intros.
+  unfold Ceq in *.
+  intros.
+  specialize (H epsilon H0).
+  classical_auto.
+  specialize H as [N H].
+  apply Preturn.
+  exists N.
+  intros.
+
+  specialize (H n H1).
+
+  simpl (seq (Cplus a b) n).
+  simpl (seq (Cplus a' b) n).
+  asreturn2 (seq a n).
+  asreturn2 (seq a' n).
+  asreturn2 (seq b n).
+
+  classical_auto.
+  apply Preturn.
+  assert (x + x1 - (x0 + x1) == x - x0) by field.
+  apply (Qle_trans _ (Qabs (x - x0))).
+  - apply Qeq_le.
+    apply Qabs_wd.
+    assumption.
+  - assumption.
+Qed.
+
+Theorem plus_respects_cauchy : forall a b a' b',
+    Ceq a a' -> Ceq b b' -> Ceq (Cplus a b) (Cplus a' b').
+Proof.
+  intros.
+  apply (Ceq_trans _ (Cplus a' b)).
+  - apply plus_respects_cauchy_lemma.
+    assumption.
+  - apply (Ceq_trans _ (Cplus b' a')).
+    + apply (Ceq_trans _ (Cplus b a')).
+      * apply Cplus_comm.
+      * apply plus_respects_cauchy_lemma.
+        assumption.
+    + apply Cplus_comm.
+Qed.
+
+Theorem mult_respects_cauchy_lemma : forall a a' b, Ceq a a' -> Ceq (Cmult a b) (Cmult a' b).
+Proof.
+  intros.
+  unfold Ceq in *.
+  intros.
+
+  assert (0 < 1) as lt01 by repeat constructor.
+
+  Check real_bounded_above_rational.
+  assert (boundu := real_bounded_above_rational b).
+  assert (boundl := real_bounded_below_rational b).
+  classical_auto.
+  specialize boundu as [boundu bounduprop].
+  specialize boundl as [boundl boundlprop].
+  unfold Cle in bounduprop.
+
+
+  assert (epsilon / 2 > 0) as hepspos. {
+    apply (Qmult_lt_r _ _ 2). {repeat constructor.}
+    field_simplify.
+    assumption.
+  }
+
+  assert (Qabs boundu + Qabs boundl + 1 > 0) as poslemma. {
+    apply Qabs2Plus1.
+  }
+  assert (epsilon / (Qabs boundu + Qabs boundl + 1) > 0) as boundpos. {
+    apply (Qmult_lt_l _ _ (Qabs boundu + Qabs boundl + 1)).
+    2: {
+      field_simplify; auto.
+      Search not Qeq Qlt.
+      Search Qeq not "sym".
+      apply Qnot_eq_sym.
+      apply Qlt_not_eq.
+      assumption.
+    }
+    assumption.
+  }
+  (* TODO: make it whatever it needs to be instead of just epsilon, probably epsilon / bound?  *)  
+  specialize (bounduprop 1 lt01).
+  specialize (boundlprop 1 lt01).
+  specialize (H (epsilon / (Qabs boundu + Qabs boundl + 1)) boundpos).
+  classical_auto.
+  specialize bounduprop as [N1 bounduprop].
+  specialize boundlprop as [N2 boundlprop].
+  specialize H as [N3 H].
+
+  apply Preturn.
+  exists (max (max N1 N2) N3).
+
+  intros.
+  specialize (bounduprop n (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ H1))).
+  specialize (boundlprop n (Nat.max_lub_r _ _ _ (Nat.max_lub_l _ _ _ H1))).
+  specialize (H n (Nat.max_lub_r _ _ _ H1)).
+
+  simpl (seq (Cmult a b) n).
+  simpl (seq (Cmult a' b) n).
+  simpl in bounduprop.
+  simpl in boundlprop.
+  asreturn2 (seq a n).
+  asreturn2 (seq a' n).
+  asreturn2 (seq b n).
+  
+  classical_auto.
+  apply Preturn.
+
+  assert (x * x1 - x0 * x1 == (x - x0) * x1) as temp by field.
+  apply (Qle_trans _ _ _ (Qeq_le (Qabs_wd _ _ temp))).
+  apply (Qle_trans _ _ _ (Qeq_le (Qabs_Qmult _ _))).
+  Search Qmult Qle.
+  (* At this point, the lhs <= ep / (u + l + 1), and rhs <= (Qabs u + Qabs l + 1)*)
+  assert (Qabs x1 <= Qabs boundu + Qabs boundl + 1). {
+    apply (Qplus_le_l _ _ boundu) in bounduprop.
+    field_simplify in bounduprop.
+    apply (fun x => Qle_trans _ _ _ x (Qle_Qabs _)) in bounduprop.
+    apply (fun x => Qle_trans _ _ _ x (Qabs_triangle boundu 1)) in bounduprop.
+    apply (add_a_Qabs _ _ boundl) in bounduprop.
+    (* now bounduprop is good *) 
+    apply (Qplus_le_l _ _ (-boundl)) in boundlprop.
+    field_simplify in boundlprop.
+    apply (fun x => Qle_trans _ _ _ x (Qle_Qabs _)) in boundlprop.
+    apply (fun x => Qle_trans _ _ _ x (Qabs_triangle (-boundl) 1)) in boundlprop.
+    apply (fun x => Qle_trans _ _ _ x (Qeq_le (Qplus_compat (Qabs_opp _) (Qeq_refl _))))
+      in boundlprop.
+    apply (add_a_Qabs _ _ boundu) in boundlprop.
+    field_simplify in bounduprop.
+    field_simplify in boundlprop.
+    assert (Qabs 1 == 1) by repeat constructor.
+    apply (fun x => Qle_trans _ _ _ x (Qeq_le (Qplus_compat (Qplus_comm _ _) H2)))
+      in bounduprop.
+    apply (fun x => Qle_trans _ _ _ x (Qeq_le (Qplus_compat (Qeq_refl _) H2)))
+      in boundlprop.
+
+    apply Qopp_le_compat in boundlprop.
+    field_simplify (- (-1 * x1)) in boundlprop.
+    apply Qabs_Qle_condition; auto.
+  }
+
+  Search Qle Qmult.
+  apply (Qle_trans _ (((epsilon / (Qabs boundu + Qabs boundl + 1)))
+                      * (Qabs boundu + Qabs boundl + 1))).
+  - apply Qmult_compat; auto; apply Qabs_nonneg.
+  - field_simplify.
+    + apply Qle_refl.
+    + apply Qnot_eq_sym.
+      apply Qlt_not_eq.
+      assumption.
+Qed.
+
+Theorem mult_respects_cauchy : forall a b a' b',
+    Ceq a a' -> Ceq b b' -> Ceq (Cmult a b) (Cmult a' b').
+Proof.
+  intros.
+  apply (Ceq_trans _ (Cmult a' b)).
+  - apply mult_respects_cauchy_lemma.
+    assumption.
+  - apply (Ceq_trans _ (Cmult b' a')).
+    + apply (Ceq_trans _ (Cmult b a')).
+      * apply Cmult_comm.
+      * apply mult_respects_cauchy_lemma.
+        assumption.
+    + apply Cmult_comm.
+Qed.
+
+Definition Cnegate (x : cauchy) : cauchy := Cmult x (QinjR (-1)).
+
+Theorem Cnegate_respects_cauchy : forall x y, Ceq x y -> Ceq (Cnegate x) (Cnegate y).
+Proof.
+  intros.
+  unfold Cnegate.
+  apply mult_respects_cauchy_lemma.
+  assumption.
+Qed.
+
+Definition Czero : cauchy := QinjR 0.
+Definition Cone : cauchy := QinjR 1.
+
+Theorem additive_inverse_l : forall x, Ceq (Cplus x Czero) x.
+Proof.
+  intros.
+  apply exact_equality.
+  intros.
+  simpl.
+  asreturn2 (seq x n).
+  classical_auto.
+  apply Preturn.
+  field.
+Qed.
+
+Theorem additive_inverse_r : forall x, Ceq (Cplus Czero x) x.
+Proof.
+  intros.
+  apply exact_equality.
+  intros.
+  simpl.
+  asreturn2 (seq x n).
+  classical_auto.
+  apply Preturn.
+  field.
+Qed.
+
+(*
+Lemma: if x != y, then exists N epsilon, Qabs (xn - yn) >= epsilon for n >= N
+ *)
+Theorem apart_property : forall x y,
+    ~ (Ceq x y) ->
+    [exists epsilon, epsilon > 0 /\ exists N : nat, forall n, le N n -> toProp (
+     Cbind (seq x n) (fun xn =>
+     Cbind (seq y n) (fun yn =>
+                        Creturn (Qabs (yn - xn) >= epsilon))))].
+Proof.
+  intros.
+  Check not_Cle_property_strong.
+  apply (Pbind(Plem (Cle x y))); intros.
+  destruct H0.
+  - assert (~ Cle y x). {
+      intros le.
+      Search "antis" Ceq.
+      apply H.
+      apply Cle_antisymmetry; assumption.
+    }
+    assert (prop := not_Cle_property_strong y x H1).
+    classical_auto.
+    specialize prop as [epsilon [epspos [N prop]]].
+    apply Preturn.
+    exists epsilon.
+    split; auto.
+    exists N.
+    intros.
+    specialize (prop n H2).
+    asreturn2 (seq x n).
+    asreturn2 (seq y n).
+    classical_auto.
+    apply Preturn.
+    Search Qabs Qle.
+    apply (fun x => Qle_trans _ _ _ x (Qle_Qabs _)).
+    apply (Qplus_le_r _ _ x0).
+    field_simplify.
+    assumption.
+  - assert (prop := not_Cle_property_strong x y H0).
+    classical_auto.
+    specialize prop as [epsilon [epspos [N prop]]].
+    apply Preturn.
+    exists epsilon.
+    split; auto.
+    exists N.
+    intros.
+    specialize (prop n H1).
+    asreturn2 (seq x n).
+    asreturn2 (seq y n).
+    classical_auto.
+    apply Preturn.
+    Search Qabs Qeq Qopp.
+    apply (fun x => Qle_trans _ _ _ x (Qeq_le (Qabs_opp _))).
+    apply (fun x => Qle_trans _ _ _ x (Qle_Qabs _)).
+    apply (Qplus_le_r _ _ x1).
+    field_simplify.
+    assumption.
+Qed.
+
+(*Theorem not_equal_property  x y (ne : ~(Ceq x y))
+  : [exists epsilon, exists N, forall n : nat, le N n ->
+                                toProp (Cbind (seq x n) (fun xn =>
+                                        Cbind (seq y n) (fun yn =>
+                                        Creturn (Qabs (yn - xn) >= epsilon))))].
+Proof.
+  unfold Ceq in ne.
+  apply not_forall_2 in ne.
+  classical_auto.
+  specialize ne as [epsilon [epspos prop]].
+  assert (temp := not_exists _ _ prop); clear prop; rename temp into prop.
+  
+  assert ([exists N le N n -> toProp (Cbind (seq x n) (fun xn =>
+                                                Cbind (seq y n) (fun yn =>
+                                                Creturn (Qabs (xn - yn) <= epsilon))))]) as temp. {
+    intros.
+    specialize (prop N).
+    simpl in prop.
+    apply not_forall_2 in prop.
+    classical_auto.
+    specialize prop as [n [H prop]].
+    apply Preturn.
+    exists n.
+    intros.*)
+    
+
+
+Definition Cinv (x : cauchy) (nonzero : ~ (Ceq x Czero)) : cauchy.
+  refine {| seq := (fun n => Cbind (seq x n) (fun xn =>
+                                                Creturn (1 / xn)))|}.
+  intros.
+  
+  assert (apart := apart_property _ _ nonzero).
+  classical_auto.
+  specialize apart as [bound [boundpos [N1 apart]]].
+  (* find epsilon from above lemma, and plug in 1 / epsilon into this property *)
+  (*assert (epsilon / bound > 0) as thingpos. {
+    apply (Qmult_lt_l _ _ bound boundpos).
+    field_simplify; auto.
+    apply Qnot_eq_sym.
+    apply Qlt_not_eq.
+    assumption.
+  }*)
+  assert (epsilon * bound * bound > 0) as thingpos. {
+    apply Qmult_lt_0_compat; auto.
+    apply Qmult_lt_0_compat; auto.
+  }
+  assert (xprop := property x (epsilon * bound * bound) thingpos).
+  classical_auto.
+  specialize xprop as [N2 xprop].
+
+  apply Preturn.
+  exists (max N1 N2).
+  intros.
+
+  unfold Czero in apart.
+
+  assert (apart1 := apart n (Nat.max_lub_l _ _ _ H0)).
+  assert (apart2 := apart m (Nat.max_lub_l _ _ _ H1)).
+  simpl (seq (QinjR 0) n) in apart1.
+  simpl (seq (QinjR 0) m) in apart2.
+  clear apart.
+  specialize (xprop n m (Nat.max_lub_r _ _ _ H0) (Nat.max_lub_r _ _ _ H1)).
+
+  asreturn2 (seq x n).
+  asreturn2 (seq x m).
+  classical_auto.
+  apply Preturn.
+
+  apply (fun x => Qle_trans _ _ _ x (Qeq_le (Qeq_sym _ _ (Qabs_opp _)))) in apart2, apart1.
+  field_simplify (- (0 - x1)) in apart2.
+  field_simplify (- (0 - x0)) in apart1.
+
+  assert (0 < Qabs x0) as x0pos by apply (Qlt_le_trans _ _ _ boundpos apart1).
+  assert (~ x0 == 0) as x0nonzero
+      by (apply Q_not_eq_lemma_3; auto).
+  assert (0 < Qabs x1) as x1pos by apply (Qlt_le_trans _ _ _ boundpos apart2).
+  assert (~ x1 == 0) as x1nonzero by apply (Q_not_eq_lemma_3 _ x1pos).
+  assert (1 / x0 - 1 / x1 == (x1 - x0) / (x0 * x1)) by (field; auto).
+  assert (~ bound == 0) as boundnonzero. {
+    apply Qnot_eq_sym.
+    apply Qlt_not_eq.
+    assumption.
+  }
+
+  apply (Qle_trans _ _ _ (Qeq_le (Qabs_wd _ _ H2))).
+  unfold Qdiv.
+  apply (Qle_trans _ _ _ (Qeq_le (Qabs_Qmult _ _))).
+
+  apply (Qle_trans _ _ _ (Qeq_le (Qabs_opp _))) in xprop.
+  field_simplify (- (x0 - x1)) in xprop.
+  apply (Qle_trans _ _ _ (Qeq_le (Qabs_wd _ _(Qplus_comm _ _)))) in xprop.
+  
+  apply (Qle_trans _ ((epsilon * bound * bound) * (/ (bound * bound)))).
+  - apply Qmult_compat.
+    + apply Qabs_nonneg.
+    + apply Qabs_nonneg.
+    + assumption.
+    + apply (Qle_compat (Qabs_Qinv _) (Qeq_refl _)).
+      apply (Qle_trans _ _ _ (Qeq_le (Qinv_comp _ _(Qabs_Qmult _ _)))).
+      assert (Qabs x0 * Qabs x1 > 0). {
+        apply Qmult_lt_0_compat; auto.
+      }
+      assert (bound * bound > 0) by (apply Qmult_lt_0_compat; auto).
+      apply (Qmult_le_l _ _ (Qabs x0 * Qabs x1)); auto.
+      apply (Qmult_le_l _ _ (bound * bound)); auto.
+      field_simplify; auto.
+      2: {
+        split;
+        apply Qnot_eq_sym;
+        apply Qlt_not_eq;
+        assumption.
+      }
+      assert (boundnonneg := Qlt_le_weak _ _ boundpos).
+      apply Qmult_compat; auto.
+  - field_simplify.
+    + apply Qle_refl.
+    + apply Qnot_eq_sym.
+      apply Qlt_not_eq.
+      assumption.
+Defined.    
+  
+  
+(* The only axioms used are functional and propositional extensionality, as this command shows: *)
+Definition all_definitions :=
+  (cauchy,
+    Ceq,
+    Cle,
+    Czero,
+    Cone,
+    Cplus,
+    Cmult,
+    Cnegate,
+    plus_respects_cauchy,
+    mult_respects_cauchy,
+    Cplus_comm,
+    Cle_trans,
+    Cle_antisymmetry,
+    Ceq_Cle,
+    Ceq_trans
+  ).
+Print Assumptions all_definitions.
