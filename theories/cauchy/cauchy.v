@@ -2346,7 +2346,7 @@ Qed.
 Definition Czero : cauchy := QinjR 0.
 Definition Cone : cauchy := QinjR 1.
 
-Theorem additive_inverse_l : forall x, Ceq (Cplus x Czero) x.
+Theorem additive_identity_l : forall x, Ceq (Cplus x Czero) x.
 Proof.
   intros.
   apply exact_equality.
@@ -2358,7 +2358,7 @@ Proof.
   field.
 Qed.
 
-Theorem additive_inverse_r : forall x, Ceq (Cplus Czero x) x.
+Theorem additive_identity_r : forall x, Ceq (Cplus Czero x) x.
 Proof.
   intros.
   apply exact_equality.
@@ -2597,6 +2597,332 @@ Proof.
   apply (property_needed_for_Cinv epsilon epsilon1 epsilon2
                                   x0 x1 eps1pos eps2pos H apartx aparty).
 Defined.
+
+(* I think this was the wrong property *)
+Theorem Cle_add_property_wrong a b c
+        (leab : Cle a b)
+  : Cle (Cplus a c) (Cplus b c).
+Proof.
+  unfold Cle in *.
+  intros.
+
+  (*assert (propc := property c (epsilon / 2) hepspos).*)
+  specialize (leab epsilon H).
+  classical_auto.
+  (*specialize propc as [N1 propc].*)
+  specialize leab as [N leab].
+
+  apply Preturn.
+  exists N.
+  intros.
+
+  specialize (leab n H0).
+
+  simpl (seq (Cplus _ _) _).
+  asreturn2 (seq a n).
+  asreturn2 (seq b n).
+  asreturn2 (seq c n).
+
+  classical_auto.
+  apply Preturn.
+  field_simplify.
+
+  assumption.
+Qed.
+
+Theorem Cle_add_property a b
+        (anonneg : Cle Czero a)
+        (bnonneg : Cle Czero b)
+  : Cle Czero (Cplus a b).
+Proof.
+
+  unfold Cle in *.
+  intros.
+  assert (epsilon / 2 > 0) as hepspos. {
+    apply (Qmult_lt_r _ _ 2). {repeat constructor.}
+    field_simplify.
+    assumption.
+  }
+  specialize (anonneg (epsilon / 2) hepspos).
+  specialize (bnonneg (epsilon / 2) hepspos).
+  classical_auto.
+  specialize anonneg as [N1 anonneg].
+  specialize bnonneg as [N2 bnonneg].
+
+  apply Preturn.
+  exists (max N1 N2).
+  intros.
+
+  specialize (anonneg n (Nat.max_lub_l _ _ _ H0)).
+  specialize (bnonneg n (Nat.max_lub_r _ _ _ H0)).
+
+  simpl (seq (Cplus _ _) _).
+  simpl (seq Czero _) in *.
+  asreturn2 (seq a n).
+  asreturn2 (seq b n).
+
+  classical_auto.
+  apply Preturn.
+
+  Search Qle Qplus.
+  assert (added := Qplus_le_compat _ _ _ _ anonneg bnonneg).
+  field_simplify.
+  repeat field_simplify in added.
+  assumption.
+Qed.  
+
+(*Theorem Cle_mult_property a b c
+        (leab : Cle a b)
+  : Cle (Cmult a c) (Cmult b c).
+Proof.*)
+Theorem Q_pos_neg_cases : forall q, q <= 0 \/ 0 <= q.
+Proof.
+  intros.
+  destruct (QOrder.TO.lt_total q 0).
+  - apply or_introl.
+    apply Qlt_le_weak.
+    assumption.
+  - destruct H.
+    + apply or_introl.
+      apply Qeq_le.
+      assumption.
+    + apply or_intror.
+      apply Qlt_le_weak.
+      assumption.
+Qed.
+  
+
+Lemma Cle_mult_property_lemma
+      a b c d x y neg
+      (propa : a <= x)
+      (propb : x <= b)
+      (propc : c <= y)
+      (propd : y <= d)
+      (isneg : neg <= 0)
+      (H1 : a * d >= neg)
+      (H2 : b * c >= neg)
+  : neg <= x * y.
+Proof.
+  (* case on whether x and y are positive or negative *)
+  Search Qlt or.
+  assert (xcases := Q_pos_neg_cases x).
+  assert (ycases := Q_pos_neg_cases y).
+  destruct xcases, ycases.
+  - 
+    apply Qopp_le_compat in H, H0.
+    field_simplify in H.
+    field_simplify in H0.
+    apply (Qle_trans _ ((-x) * (-y))).
+    + Search 0%Q Qle Qmult.
+      apply (Qle_trans _ _ _ isneg).
+      apply Qmult_le_0_compat; auto.
+    + field_simplify.
+      apply Qle_refl.
+  - apply Qopp_le_compat in H.
+    field_simplify in H.
+    apply (Qle_trans _ (-((-x) * y))).
+    + remember ((-x) * y) as donttouchthis.
+      apply Qopp_le_compat2.
+      field_simplify.
+      subst donttouchthis.
+      apply (Qle_trans _ ((- a) * d)).
+      * apply Qmult_compat; auto.
+        apply Qopp_le_compat2.
+        field_simplify.
+        auto.
+      * apply Qopp_le_compat in H1.
+        field_simplify in H1.
+        assumption.
+    + field_simplify.
+      apply Qle_refl.
+  - apply Qopp_le_compat in H0.
+    field_simplify in H0.
+    apply (Qle_trans _ (-(x * (-y)))).
+    + remember (x * (-y)) as donttouchthis.
+      apply Qopp_le_compat2.
+      field_simplify.
+      subst donttouchthis.
+      apply (Qle_trans _ (b * (-c))).
+      * apply Qmult_compat; auto.
+        apply Qopp_le_compat2.
+        field_simplify.
+        auto.
+      * apply Qopp_le_compat in H2.
+        field_simplify in H2.
+        field_simplify.
+        assumption.
+    + field_simplify.
+      apply Qle_refl.
+  - apply (Qle_trans _ _ _ isneg).
+    apply Qmult_le_0_compat; auto.
+Qed.
+
+Theorem Cle_mult_property a b
+        (anonneg : Cle Czero a)
+        (bnonneg : Cle Czero b)
+  : Cle Czero (Cmult a b).
+Proof.
+
+  unfold Cle in *.
+  intros.
+  assert (epsilon / 2 > 0) as hepspos. {
+    apply (Qmult_lt_r _ _ 2). {repeat constructor.}
+    field_simplify.
+    assumption.
+  }
+  assert (1 > 0) as le01 by repeat constructor.
+  Check real_bounded_above_rational.
+  assert (bounda := real_bounded_above_rational a).
+  assert (boundb := real_bounded_above_rational b).
+  classical_auto.
+  specialize bounda as [bounda boundaprop].
+  specialize boundb as [boundb boundbprop].
+  unfold Cle in boundaprop, boundbprop.
+  specialize (boundaprop 1 le01).
+  specialize (boundbprop 1 le01).
+  classical_auto.
+  specialize boundaprop as [N3 boundaprop].
+  specialize boundbprop as [N4 boundbprop].
+
+  assert (forall x, Qabs x + 1 > 0) as formpos. {
+    intros.
+    apply (Qle_lt_trans _ (Qabs x)).
+    + apply Qabs_nonneg.
+    + apply (Qplus_lt_l _ _ (- (Qabs x))).
+      field_simplify.
+      repeat constructor.
+  }
+
+  assert (forall x, ~ Qabs x + 1 == 0) as formnonneg. {
+    intros.
+    apply Qnot_eq_sym.
+    apply Qlt_not_eq.
+    apply formpos.
+  }
+  
+  (* I need bounda and boundb to be non-negative. Or maybe I can just
+   throw an absolute value in there somewhere? *)
+  assert (epsilon / (Qabs bounda + 1) > 0) as thingapos. {
+    unfold Qdiv.
+    apply Qmult_lt_0_compat.
+    - assumption.
+    - apply Qinv_lt_0_compat.
+      apply formpos.
+  }
+  assert (epsilon / (Qabs boundb + 1) > 0) as thingbpos. {
+    unfold Qdiv.
+    apply Qmult_lt_0_compat.
+    - assumption.
+    - apply Qinv_lt_0_compat.
+      apply formpos.
+  }
+    
+  specialize (anonneg (epsilon / (Qabs boundb + 1)) thingbpos).
+  specialize (bnonneg (epsilon / (Qabs bounda + 1)) thingapos).
+  classical_auto.
+  specialize anonneg as [N1 anonneg].
+  specialize bnonneg as [N2 bnonneg].
+
+  apply Preturn.
+  exists (max (max N1 N2) (max N3 N4)).
+  intros.
+
+  specialize (anonneg n (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ H0))).
+  specialize (bnonneg n (Nat.max_lub_r _ _ _ (Nat.max_lub_l _ _ _ H0))).
+  specialize (boundaprop n (Nat.max_lub_l _ _ _ (Nat.max_lub_r _ _ _ H0))).
+  specialize (boundbprop n (Nat.max_lub_r _ _ _ (Nat.max_lub_r _ _ _ H0))).
+
+  simpl (seq (QinjR _) _) in *.
+  simpl (seq (Cmult _ _) _).
+  simpl (seq Czero _) in *.
+  asreturn2 (seq a n).
+  asreturn2 (seq b n).
+
+  classical_auto.
+  apply Preturn.
+
+  apply Qopp_le_compat in anonneg, bnonneg.
+  field_simplify in anonneg; auto.
+  field_simplify in bnonneg; auto.
+  apply (Qplus_le_l _ _ bounda) in boundaprop.
+  field_simplify in boundaprop.
+  apply (Qplus_le_l _ _ boundb) in boundbprop.
+  field_simplify in boundbprop.
+  apply (fun x => Qle_trans _ _ _ x (Qplus_le_compat _ _ _ _ (Qle_Qabs _) (Qle_refl _)))
+    in boundaprop, boundbprop.
+
+  apply Qopp_le_compat2.
+  field_simplify.
+
+  Check Cle_mult_property_lemma.
+  Check (Cle_mult_property_lemma
+           (-1 * epsilon / (Qabs bounda + 1))
+           (Qabs bounda + 1)
+           (-1 * epsilon / (Qabs boundb + 1))
+           (Qabs boundb + 1)).
+  Check (Cle_mult_property_lemma
+           (-1 * epsilon / (Qabs bounda + 1))
+           (Qabs bounda + 1)
+           (-1 * epsilon / (Qabs boundb + 1))
+           (Qabs boundb + 1)
+           x x0 (- epsilon)).
+  apply Qopp_lt_compat in H.
+  field_simplify in H.
+  apply Qlt_le_weak in H.
+  Check (Cle_mult_property_lemma
+           (-1 * epsilon / (Qabs boundb + 1))
+           (Qabs bounda + 1)
+           (-1 * epsilon / (Qabs bounda + 1))
+           (Qabs boundb + 1)
+           x x0 (- epsilon)
+           anonneg
+           boundaprop
+           bnonneg
+           boundbprop
+           H).
+
+  assert (- epsilon <= (-1 * epsilon / (Qabs boundb + 1)) * (Qabs boundb + 1)). {
+    apply Qeq_le.
+    field.
+    auto.
+  }
+  assert (- epsilon <= (Qabs bounda + 1) * (-1 * epsilon / (Qabs bounda + 1))). {
+    apply Qeq_le.
+    field.
+    auto.
+  }
+
+  apply (Cle_mult_property_lemma
+           (-1 * epsilon / (Qabs boundb + 1))
+           (Qabs bounda + 1)
+           (-1 * epsilon / (Qabs bounda + 1))
+           (Qabs boundb + 1)
+           x x0 (- epsilon)
+           anonneg
+           boundaprop
+           bnonneg
+           boundbprop
+           H
+           H1
+           H2).
+Qed.
+
+
+
+(* Basic definitions *)
+Check cauchy.
+Check Ceq.
+Check Cle.
+Check Cplus.
+Check Cmult.
+Check Cnegate.
+Check Cinv.
+
+(* Field Axioms *)
+Check Cplus_assoc.
+Check additive_identity_l.
+Check additive_identity_r.
+
   
 (* The only axioms used are functional and propositional extensionality, as this command shows: *)
 Definition all_definitions :=
