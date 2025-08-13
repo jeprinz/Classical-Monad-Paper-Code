@@ -2370,6 +2370,30 @@ Proof.
   field.
 Qed.
 
+Theorem multiplicative_identity_l : forall x, Ceq (Cmult x Cone) x.
+Proof.
+  intros.
+  apply exact_equality.
+  intros.
+  simpl.
+  asreturn2 (seq x n).
+  classical_auto.
+  apply Preturn.
+  field.
+Qed.
+
+Theorem multiplicative_identity_r : forall x, Ceq (Cmult Cone x) x.
+Proof.
+  intros.
+  apply exact_equality.
+  intros.
+  simpl.
+  asreturn2 (seq x n).
+  classical_auto.
+  apply Preturn.
+  field.
+Qed.
+
 (*
 Lemma: if x != y, then exists N epsilon, Qabs (xn - yn) >= epsilon for n >= N
  *)
@@ -2907,7 +2931,111 @@ Proof.
            H2).
 Qed.
 
+Theorem additive_inverse_r : forall x, Ceq (Cplus x (Cnegate x)) Czero.
+Proof.
+  intros.
+  apply exact_equality.
+  intros.
+  simpl.
+  asreturn2 (seq x n).
+  classical_auto.
+  apply Preturn.
+  field.
+Qed.
 
+Theorem additive_inverse_l : forall x, Ceq (Cplus (Cnegate x) x) Czero.
+Proof.
+  intros.
+  apply exact_equality.
+  intros.
+  simpl.
+  asreturn2 (seq x n).
+  classical_auto.
+  apply Preturn.
+  field.
+Qed.
+
+Theorem multiplicative_inverse_r : forall x (H : ~ (Ceq x Czero)),
+    Ceq (Cmult x (Cinv x H)) Cone.
+Proof.
+  intros.
+  unfold Ceq.
+  intros.
+  assert (prop := apart_property _ _ H).
+  classical_auto.
+  specialize prop as [epsilon2 [eps2pos [N prop]]].
+  
+  apply Preturn.
+  exists N.
+  intros.
+  specialize (prop n H1).
+  simpl (seq Czero _) in prop.
+  simpl (seq (Cmult x (Cinv x H)) n).
+  simpl (seq Cone n).
+  asreturn2 (seq x n).
+  classical_auto.
+  apply Preturn.
+
+  apply (Qlt_le_trans _ _ _ eps2pos) in prop.
+  Search (0 < Qabs _)%Q.
+  apply Q_not_eq_lemma_2 in prop.
+  apply Qnot_eq_sym in prop.
+  field_simplify (x0 * (1 / x0) - 1); auto.
+  simpl.
+  apply Qlt_le_weak.
+  assumption.
+Qed.
+
+Theorem multiplicative_inverse_l : forall x (H : ~ (Ceq x Czero)),
+    Ceq (Cmult (Cinv x H) x) Cone.
+Proof.
+  intros.
+  unfold Ceq.
+  intros.
+  assert (prop := apart_property _ _ H).
+  classical_auto.
+  specialize prop as [epsilon2 [eps2pos [N prop]]].
+  
+  apply Preturn.
+  exists N.
+  intros.
+  specialize (prop n H1).
+  simpl (seq Czero _) in prop.
+  simpl (seq (Cmult (Cinv x H) x) n).
+  simpl (seq Cone n).
+  asreturn2 (seq x n).
+  classical_auto.
+  apply Preturn.
+
+  apply (Qlt_le_trans _ _ _ eps2pos) in prop.
+  Search (0 < Qabs _)%Q.
+  apply Q_not_eq_lemma_2 in prop.
+  apply Qnot_eq_sym in prop.
+  field_simplify ((1 / x0) * x0 - 1); auto.
+  simpl.
+  apply Qlt_le_weak.
+  assumption.
+Qed.
+
+Theorem distributivity : forall x y z,
+    Ceq (Cmult x (Cplus y z)) (Cplus (Cmult x y) (Cmult x z)).
+Proof.
+  intros.
+  apply exact_equality.
+  intros.
+  simpl.
+  asreturn2 (seq x n).
+  asreturn2 (seq y n).
+  asreturn2 (seq z n).
+  classical_auto.
+  apply Preturn.
+  Search Q "dist".
+  apply Qmult_plus_distr_r.
+Qed.
+
+(*
+Here is everything in one place to check that I have fully formalized the real numbers.
+*)
 
 (* Basic definitions *)
 Check cauchy.
@@ -2917,29 +3045,56 @@ Check Cplus.
 Check Cmult.
 Check Cnegate.
 Check Cinv.
+Check Czero.
+Check Cone.
+
+(* Basic order and equivalence axioms  *)
+Check Ceq_trans.
+Check Ceq_refl.
+Check Ceq_sym.
+
+Check Cle_trans.
+Check Cle_antisymmetry.
+Check Ceq_Cle.
+
+(* Basic definitions respect equivalence *)
+Check plus_respects_cauchy.
+Check mult_respects_cauchy.
+Check Cnegate_respects_cauchy.
+Check Cinv_respects_cauchy.
 
 (* Field Axioms *)
 Check Cplus_assoc.
 Check additive_identity_l.
 Check additive_identity_r.
+Check additive_inverse_l.
+Check additive_inverse_r.
+Check Cplus_comm.
+Check Cplus_assoc.
+Check multiplicative_identity_l.
+Check multiplicative_identity_r.
+Check multiplicative_inverse_l.
+Check multiplicative_inverse_r.
+Check Cmult_comm.
+Check distributivity.
 
+(* Total ordering *)
+Check total_ordering.
+Check Cle_add_property.
+Check Cle_mult_property.
+
+(* Existence of least upper bounds *)
+Check lub_but_its_only_a_prop.
   
 (* The only axioms used are functional and propositional extensionality, as this command shows: *)
 Definition all_definitions :=
-  (cauchy,
-    Ceq,
-    Cle,
-    Czero,
-    Cone,
-    Cplus,
-    Cmult,
-    Cnegate,
-    plus_respects_cauchy,
-    mult_respects_cauchy,
-    Cplus_comm,
-    Cle_trans,
-    Cle_antisymmetry,
-    Ceq_Cle,
-    Ceq_trans
-  ).
+  (cauchy, Ceq, Cle, Cplus, Cmult, Cnegate, Cinv, Czero, Cone,
+    Ceq_trans, Ceq_refl, Ceq_sym, Cle_trans, Cle_antisymmetry, Ceq_Cle,
+    plus_respects_cauchy, mult_respects_cauchy, Cnegate_respects_cauchy, Cinv_respects_cauchy,
+    Cplus_assoc, additive_identity_l, additive_identity_r, additive_inverse_l,
+    additive_inverse_r, Cplus_comm, Cplus_assoc, multiplicative_identity_r,
+    multiplicative_identity_l, multiplicative_inverse_l, multiplicative_inverse_r, Cmult_comm,
+    distributivity,
+    total_ordering, Cle_add_property, Cle_mult_property, lub_but_its_only_a_prop).
+
 Print Assumptions all_definitions.
