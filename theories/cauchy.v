@@ -933,12 +933,11 @@ Fixpoint converging (startTop startBot: Q) (decide : Q -> Prop) (index :  nat)
       | O => Creturn (startTop , startBot)
       | S index' =>
           Cbind (converging startTop startBot decide index') (fun bt =>
-          (*match bt with (b , t) =>*)
           let t := fst bt in
           let b := snd bt in
           let half := (b + t) / 2 in
           Pif (decide half) (t , half) (half , b)
-          (*end*) )
+          )
       end
     ).
 Defined.
