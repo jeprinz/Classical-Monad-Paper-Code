@@ -1,4 +1,6 @@
-Require Import Cbase.
+Require Import base.
+
+(* This version of quotient has a [] in the definition *)
 
 Require Import Coq.Classes.RelationClasses.
 Require Import Coq.Relations.Relation_Definitions.
@@ -20,7 +22,7 @@ Module Quotient (EqRel : EqRel).
   (* The quotient type *)
 
   Definition t : Type :=
-    {S : A -> Prop | (forall x y, S x -> (R x y <-> S y)) /\ (exists a, S a)}.
+    {S : A -> Prop | (forall x y, S x -> (R x y <-> S y)) /\ [exists a, S a]}.
 
   Lemma quotientEq :
     forall S1 S2 p1 p2,
@@ -61,15 +63,17 @@ Module Quotient (EqRel : EqRel).
         apply H.
         apply Rsym in H0.
         apply H0.
-    - exists a.
+    - apply Preturn.
+      exists a.
       apply Rrefl.
   Defined.
 
-  Theorem ind : forall (P : t -> Prop), (forall (a : A), P (mk a)) -> forall (q : t), (P q).
+  Theorem ind : forall (P : t -> Prop), (forall (a : A), P (mk a)) -> forall (q : t), [P q].
   Proof.
     intros.
     remember q as q'.
-    destruct q as [S [property [a aInS]]].
+    destruct q as [S [property aaInS]].
+    apply (Pbind aaInS); intros [a aInS].
     assert (q' = (mk a)). {
       subst.
       apply quotientEq.
@@ -85,13 +89,13 @@ Module Quotient (EqRel : EqRel).
         apply H0.
     }
     rewrite H0.
+    apply Preturn.
     apply H.
   Qed.
 
-  Theorem isMk : forall (x : t), exists a, x = mk a.
+  Theorem isMk : forall (x : t), [exists a, x = mk a].
   Proof.
     intros.
-    Check (ind).
     apply (ind (fun t => exists a, t = mk a)).
     intros.
     exists a.
@@ -128,48 +132,47 @@ Module Quotient (EqRel : EqRel).
   Qed.
 
   Definition lift {T : Type} (f : A -> Classical T)
-             (*(respects : forall a b, R a b -> f a = f b)*)
+             (respects : forall a b, R a b -> f a = f b)
              (x : t) : Classical T.
-    refine (exist _ (fun t0 => toCProp (forall a, proj1_sig x a -> isTrue (proj1_sig (f a) t0))) _).
-    destruct x as [S [unique [a Sa]]].
+    refine (exist _ (fun t0 => forall a, proj1_sig x a -> proj1_sig (f a) t0) _).
+    destruct x as [S [SR aSa]].
     simpl.
     split.
     -
+      classical_auto.
+      specialize aSa as [a Sa].
       remember (f a) as fa.
-      destruct (f a) as [St [tnonempty tunique]].
+      destruct fa as [St [tnonempty tunique]].
+      simpl in *.
       apply (Pbind tnonempty).
       intros [t Stt].
       apply Preturn.
       exists t.
-      apply Preturn.
       intros.
-      Check (proj2_sig (f a0)).
-      
-      destruct tnonempty as [t Stt].
-      apply Preturn.
-      exists t.
+      assert (R a a0) as Raa0. {
+        apply SR; assumption.
+      }
+      specialize (respects _ _ Raa0).
+      rewrite <- respects.
+      rewrite <- Heqfa.
       simpl.
-      apply Preturn.
-      intros.
-      
-    
-    
-    intros.
-    destruct x as [S [property [a Sa]]].
-    specialize (H a Sa).
-    specialize (H0 a Sa).
-    exact (proj2_sig (f a) _ _ H H0).
+      assumption.
+    - intros x y [fax fay].
+      Check (fun a => proj2_sig (f a)).
+      specialize (fax a Sa).
+      specialize (fay a Sa).
+      Check (proj2_sig (f a)).
+      destruct (proj2_sig (f a)) as [_ unique].
+      specialize (unique _ _ (conj fax fay)).
+      assumption.
   Defined.
-  (* lift_eq uses the "respects" premise, but lift doesn't.
-     beccause of the way that lift is defined, if f maps different elements of an equivalence
-    class of x to different outputs, then (lift f x) is simply empty. *)
 
-  Theorem lift_eq : forall {T : Type} (f : A -> Partial T)
+  Theorem lift_eq : forall {T : Type} (f : A -> Classical T)
                            (respects : forall a b, R a b -> f a = f b)
-                           (a : A), lift f (*respects*) (mk a) = f a.
+                           (a : A), lift f respects (mk a) = f a.
   Proof.
     intros.
-    apply partialEq2.
+    apply sigEq2.
     simpl.
     extensionality t0.
     apply propositional_extensionality.
@@ -183,16 +186,54 @@ Module Quotient (EqRel : EqRel).
       assumption.
   Qed.
 
-  (* Just testing stuff here, this isn't going to work. *)
-  Definition lift2 {T : Type} (f : A -> T)
-             (respects : forall a b, R a b -> f a = f b)
-             (x : t) : exists t : T, exists a : A, x = mk a /\ f a = t.
+  Check lift.
+  Definition lift2 {T : Type} (f : A -> A -> Classical T)
+             (respects : forall x y x' y', R x x' -> R y y' -> f x y = f x' y')
+             (x y : t) : Classical T.
+    refine (lift (fun a => lift (fun b => f a b) _ y) _ x).
+    shelve.
+    all:revgoals.
+    Unshelve.
+    - intros.
+      apply respects; auto.
+      apply Rrefl.
+    - intros.
+      refine (ind (fun y => lift (fun b0 : A => f a b0) _ y =
+                              lift (fun b0 : A => f b b0) _ y) _ y).
+      intros.
+      repeat rewrite lift_eq.
+      apply respects; auto.
+      apply Rrefl.
+  Defined.
+
+  Theorem lift2_eq {T : Type} (f : A -> A -> Classical T)
+          (respects : forall x y x' y', R x x' -> R y y' -> f x y = f x' y')
+          (a b : A) : lift2 f respects (mk a) (mk b) = f a b.
   Proof.
-    destruct (isMk x) as [a p].
-    subst.
-    exists (f a).
-    exists a.
-    auto.
+    unfold lift2.
+    rewrite lift_eq.
+    rewrite lift_eq.
+    reflexivity.
   Qed.
-   
+
+  (*
+  Definition map2 (f : A -> A -> A)
+             (respects : forall x y x' y', R x x' -> R y y' -> f x y = f x' y')
+             (t1 t2 : t): t.
+    refine (lift2 (fun a b => Creturn (mk (f a b))) _ t1 t2).
+    intros.
+    apply sound.
+    apply respects.
+    apply H. apply H0.
+  Defined.
+
+  Theorem map2_eq (f : A -> A -> A)
+          (respects : forall x y x' y', R x x' -> R y y' -> f x y = f x' y')
+          (a b : A) : map2 f respects (mk a) (mk b) = mk (f a b).
+  Proof.
+    unfold map2.
+    rewrite lift2_eq.
+    reflexivity.
+  Qed.
+   *)
 End Quotient.

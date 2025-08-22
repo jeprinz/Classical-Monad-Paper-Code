@@ -324,9 +324,7 @@ Proof.
   simpl in H.
 
   assert (epsilon / 3 > 0) as hepspos. {
-    apply (Qmult_lt_r _ _ 3). {
-      repeat constructor.
-    }
+    apply (Qmult_lt_r _ _ 3). {repeat constructor.}
     field_simplify.
     assumption.
   }
@@ -408,9 +406,7 @@ Proof.
   simpl in H.
 
   assert (epsilon / 2 > 0) as hepspos. {
-    apply (Qmult_lt_r _ _ 2). {
-      repeat constructor.
-    }
+    apply (Qmult_lt_r _ _ 2). {repeat constructor.}
     field_simplify.
     assumption.
   }
@@ -907,9 +903,7 @@ Proof.
   apply Qabs_Qle_condition.
   split.
   - apply Qopp_le_compat2.
-    apply (Qle_trans _ (x1 - x0)). {
-      apply Qeq_le. field.
-    }
+    apply (Qle_trans _ (x1 - x0)). {apply Qeq_le. field.}
     field_simplify.
     assumption.
   - assumption.
@@ -1331,9 +1325,7 @@ Definition converging_cauchy (startTop startBot: Q) (decide : Q -> Prop) (separa
     split.
     + apply Qopp_le_compat2.
       field_simplify.
-      apply (@QOrder.eq_le _ (tm - tn)). {
-        field.
-      }
+      apply (@QOrder.eq_le _ (tm - tn)). {field.}
       apply (bound_lemma_1 tmt0).
       apply (bound_lemma_2 separate_n).
       apply (bound_lemma_2 tb0bn).
@@ -1375,9 +1367,7 @@ Definition converging_cauchy (startTop startBot: Q) (decide : Q -> Prop) (separa
     split.
     + apply Qopp_le_compat2.
       field_simplify.
-      apply (@QOrder.eq_le _ (bm - bn)). {
-        field.
-      }
+      apply (@QOrder.eq_le _ (bm - bn)). {field.}
       apply (bound_lemma_1 separate_m).
       apply (bound_lemma_1 tmt0).
       apply (bound_lemma_2 tb0bn).
@@ -1591,9 +1581,7 @@ Proof.
     assert (gt0 := Q_not_eq_lemma _ _ H0).
     classical_auto.
     assert ((Qabs (q1 - q2)) / 2 > 0) as pos. {
-      apply (Qmult_lt_r _ _ 2). {
-        repeat constructor.
-      }
+      apply (Qmult_lt_r _ _ 2). {repeat constructor.}
       field_simplify.
       assumption.
     }
@@ -2238,9 +2226,7 @@ Proof.
 
 
   assert (epsilon / 2 > 0) as hepspos. {
-    apply (Qmult_lt_r _ _ 2). {
-      repeat constructor.
-    }
+    apply (Qmult_lt_r _ _ 2). {repeat constructor.}
     field_simplify.
     assumption.
   }
@@ -2676,9 +2662,7 @@ Proof.
   unfold Cle in *.
   intros.
   assert (epsilon / 2 > 0) as hepspos. {
-    apply (Qmult_lt_r _ _ 2). {
-      repeat constructor.
-    }
+    apply (Qmult_lt_r _ _ 2). {repeat constructor.}
     field_simplify.
     assumption.
   }
@@ -2805,9 +2789,7 @@ Proof.
   unfold Cle in *.
   intros.
   assert (epsilon / 2 > 0) as hepspos. {
-    apply (Qmult_lt_r _ _ 2). {
-      repeat constructor.
-    }
+    apply (Qmult_lt_r _ _ 2). {repeat constructor.}
     field_simplify.
     assumption.
   }

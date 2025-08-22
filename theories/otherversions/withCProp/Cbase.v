@@ -302,3 +302,32 @@ Proof.
   assumption.
 Qed.
 
+(* This is something that doesn't work without CProp!!!! *)
+Theorem removedneq (T : Type) (t1 t2 : Classical T) (eq : PClassical (t1 = t2)) : t1 = t2.
+Proof.
+  apply sigEq2.
+  destruct t1, t2.
+  simpl.
+  assert (PClassical (x = x0)). {
+    pbind eq.
+    apply (@f_equal _ _ (@proj1_sig _ _)) in eq.
+    simpl in eq.
+    apply Preturn.
+    assumption.
+  }
+  clear a a0 eq.
+  extensionality t.
+  apply CProp_Ext.
+  - intros.
+    apply unwrap.
+    pbind H.
+    subst.
+    apply Preturn.
+    assumption.
+  - intros.
+    apply unwrap.
+    pbind H.
+    subst.
+    apply Preturn.
+    assumption.
+Qed.
