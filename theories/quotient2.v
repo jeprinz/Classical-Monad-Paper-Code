@@ -325,26 +325,4 @@ Module Quotient (EqRel : EqRel).
     rewrite unwrapDef.
     reflexivity.
   Qed.
-
-  (* just an idea *)
-  Theorem no_way : forall (x y : t), [x = y] -> x = y.
-  Proof.
-    intros.
-    apply sigEq2.
-    destruct x, y.
-    simpl.
-    assert [x = x0]. {
-      classical_auto.
-      apply (@f_equal _ _ (@proj1_sig _ _)) in H.
-      simpl in H.
-      apply Preturn.
-      assumption.
-    }
-    clear H a a0.
-    extensionality a.
-    apply propositional_extensionality.
-    split.
-    - intros.
-      
-    
 End Quotient.

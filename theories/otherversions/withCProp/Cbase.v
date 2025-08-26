@@ -747,3 +747,87 @@ Ltac asreturn3 H :=
   try intro defining_pred;
   rewrite <- eq;
   clear eq.
+
+
+Definition Pif' {T : Type} (P : Prop) (b1 : P -> T) (b2 : ~P -> T) : Classical T.
+  refine (exist _ (fun b => toCProp ({p : P | b = b1 p} \/ {np : ~P | b = b2 np})) _).
+  split.
+  - apply (Pbind (Plem P)); intros pornotp.
+    apply Preturn.
+    destruct pornotp.
+    + exists (b1 H).
+      simpl.
+      apply Preturn.
+      apply or_introl.
+      Print sig.
+      refine (exist _ H eq_refl).
+    + exists (b2 H).
+      simpl.
+      apply Preturn.
+      apply or_intror.
+      refine (exist _ H eq_refl).
+  - intros.
+    destruct H.
+    simpl in *.
+    pbind H.
+    pbind H0.
+    apply Preturn.
+    destruct H; destruct H0;
+      destruct H; destruct H0;
+      subst; auto;
+      try contradiction; apply f_equal; apply proof_irrelevance.
+Defined.
+
+Theorem Pif'Def1 {T : Type} (P : Prop) (b1 : P -> T) (b2 : ~P -> T) (p : P)
+  : Pif' P b1 b2 = Creturn (b1 p).
+Proof.
+  intros.
+  apply sigEq2.
+  simpl.
+  extensionality b.
+  apply CProp_Ext.
+  - intros.
+    classical_auto.
+    destruct H.
+    + destruct H.
+      subst.
+      apply Preturn.
+      apply f_equal.
+      apply proof_irrelevance.
+    + destruct H.
+      contradiction.
+  - intros.
+    classical_auto.
+    subst.
+    apply Preturn.
+    apply or_introl.
+    refine (exist _ p eq_refl).
+Qed.
+
+Theorem Pif'Def2 {T : Type} (P : Prop) (b1 : P -> T) (b2 : ~P -> T) (p : ~ P)
+  : Pif' P b1 b2 = Creturn (b2 p).
+Proof.
+  intros.
+  apply sigEq2.
+  simpl.
+  extensionality b.
+  apply CProp_Ext.
+  - intros.
+    simpl in *.
+    pbind H.
+    destruct H.
+    + destruct H.
+      contradiction.
+    + destruct H.
+      apply Preturn.
+      subst.
+      apply f_equal.
+      apply proof_irrelevance.
+  - intros.
+    simpl in *.
+    pbind H.
+    apply Preturn.
+    apply or_intror.
+    refine (exist _ p _).
+    assumption.
+Qed.
