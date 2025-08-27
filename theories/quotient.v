@@ -1,11 +1,12 @@
 Require Import base.
 
-(* This version of quotient doesn't have a [] in the definition *)
+(* This version of quotient has a [] in the definition *)
 
-Require Import Coq.Classes.RelationClasses.
-Require Import Coq.Relations.Relation_Definitions.
+Require Import Stdlib.Classes.RelationClasses.
+Require Import Stdlib.Relations.Relation_Definitions.
 Require Import PropExtensionality. (*this line also imports proof irrelevance*)
 Require Import FunctionalExtensionality.
+Require Import util.
 
 Module Type EqRel.
   Parameter A : Type.
@@ -22,8 +23,10 @@ Module Quotient (EqRel : EqRel).
   (* The quotient type *)
 
   Definition t : Type :=
-    {S : A -> Prop | (forall x y, S x -> (R x y <-> S y)) /\ (exists a, S a)}.
+    {S : A -> CProp |
+      (forall x y, isTrue (S x) -> ([R x y] <-> isTrue (S y))) /\ [exists a, isTrue (S a)]}.
 
+  (*TODO: can't I just delete these and use sigEq? *)
   Lemma quotientEq :
     forall S1 S2 p1 p2,
       S1 = S2 -> @eq t (exist _ S1 p1) (exist _ S2 p2).
@@ -48,41 +51,52 @@ Module Quotient (EqRel : EqRel).
   Qed.
   
   Definition mk (a : A) : t.
-    refine (exist _ (fun a' => R a' a) _).
+    refine (exist _ (fun a' => toCProp (R a' a)) _).
     subst.
     split.
     - intros.
       split.
       + intros.
+        classical_auto.
+        apply Preturn.
         apply Rsym in H0.
         eapply Rtrans.
         apply H0.
         apply H.
       + intros.
+        classical_auto.
+        apply Preturn.
         eapply Rtrans.
         apply H.
         apply Rsym in H0.
         apply H0.
-    - exists a.
+    - apply Preturn.
+      exists a.
+      classical_auto.
+      apply Preturn.
       apply Rrefl.
   Defined.
 
-  Theorem ind : forall (P : t -> Prop), (forall (a : A), P (mk a)) -> forall (q : t), (P q).
+  Theorem ind : forall (P : t -> Prop), (forall (a : A), [P (mk a)]) -> forall (q : t), [P q].
   Proof.
     intros.
     remember q as q'.
-    destruct q as [S [property [a aInS]]].
+    destruct q as [S [property aaInS]].
+    apply (Pbind aaInS); intros [a aInS].
     assert (q' = (mk a)). {
       subst.
       apply quotientEq.
       extensionality a'.
-      apply propositional_extensionality.
-      split.
+      apply CProp_Ext.
       - intros.
+        classical_auto.
         apply property; assumption.
       - intros.
         specialize (property a a' aInS).
+        classical_auto.
         apply property.
+        classical_auto.
+        apply Preturn.
         apply Rsym.
         apply H0.
     }
@@ -90,14 +104,46 @@ Module Quotient (EqRel : EqRel).
     apply H.
   Qed.
 
-  Theorem isMk : forall (x : t), exists a, x = mk a.
+  Theorem isMk : forall (x : t), [exists a, x = mk a].
   Proof.
     intros.
-    Check (ind).
     apply (ind (fun t => exists a, t = mk a)).
     intros.
+    apply Preturn.
     exists a.
     auto.
+  Qed.
+
+  Theorem isMk_extended : forall (q : t), [exists a, q = mk a /\ proj1_sig (proj1_sig q a)].
+  Proof.
+    intros.
+    remember q as q'.
+    destruct q as [S [property aaInS]].
+    apply (Pbind aaInS); intros [a aInS].
+    assert (q' = (mk a)). {
+      subst.
+      apply quotientEq.
+      extensionality a'.
+      apply CProp_Ext.
+      - intros.
+        classical_auto.
+        apply property; assumption.
+      - intros.
+        specialize (property a a' aInS).
+        classical_auto.
+        apply property.
+        classical_auto.
+        apply Preturn.
+        apply Rsym.
+        assumption.
+    }
+    apply Preturn.
+    exists a.
+    split.
+    - assumption.
+    - subst q'.
+      simpl.
+      assumption.
   Qed.
 
   Theorem sound : forall a b, R a b -> mk a = mk b.
@@ -106,37 +152,47 @@ Module Quotient (EqRel : EqRel).
     apply quotientEq2.
     simpl.
     extensionality a'.
-    apply propositional_extensionality.
-    split.
+    apply CProp_Ext.
     - intros.
+      classical_auto.
+      apply Preturn.
       eapply Rtrans.
       apply H0.
       apply H.
     - intros.
+      classical_auto.
+      apply Preturn.
       eapply Rtrans.
       apply H0.
       apply Rsym.
       apply H.
   Qed.
 
-  Theorem complete : forall a b, mk a = mk b -> R a b.
+  (* You could maybe get rid of the [] here, if R outputted a CProp? I'm not sure whats ideal. *)
+  Theorem complete : forall a b, mk a = mk b -> [R a b].
   Proof.
     intros.
     apply (@f_equal _ _ (@proj1_sig _ _)) in H.
     simpl in H.
     apply (@f_equal _ _ (fun f => f a)) in H.
+    apply (@f_equal _ _ (isTrue)) in H.
+    simpl in H.
     rewrite <- H.
+    apply Preturn.
     apply Rrefl.
   Qed.
 
   Definition lift {T : Type} (f : A -> Classical T)
              (respects : forall a b, R a b -> f a = f b)
              (x : t) : Classical T.
-    refine (exist _ (fun t0 => forall a, proj1_sig x a -> proj1_sig (f a) t0) _).
-    destruct x as [S [SR [a Sa]]].
+    refine (exist _ (fun t0 =>
+                       toCProp (exists a, isTrue (proj1_sig x a) /\ isTrue (proj1_sig (f a) t0))) _).
+    destruct x as [S [SR aSa]].
     simpl.
     split.
     -
+      classical_auto.
+      specialize aSa as [a Sa].
       remember (f a) as fa.
       destruct fa as [St [tnonempty tunique]].
       simpl in *.
@@ -145,23 +201,28 @@ Module Quotient (EqRel : EqRel).
       apply Preturn.
       exists t.
       intros.
-      assert (R a a0) as Raa0. {
-        apply SR; assumption.
-      }
-      specialize (respects _ _ Raa0).
-      rewrite <- respects.
+      classical_auto.
+      apply Preturn.
+      exists a.
+      split; auto.
       rewrite <- Heqfa.
       simpl.
       assumption.
-    - intros x y [fax fay].
-      specialize (fax a Sa).
-      specialize (fay a Sa).
-      Check (proj2_sig (f a)).
+    - intros x y [ aSafax a'Sa'fay ].
+      classical_auto.
+      specialize aSafax as [a [Sa fax]].
+      specialize a'Sa'fay as [a' [Sa' fay]].
+      (* this is line 162 *)
       destruct (proj2_sig (f a)) as [_ unique].
+      specialize (SR a a' Sa).
+      apply SR in Sa'.
+      classical_auto.
+      specialize (respects a a' Sa').
+      rewrite <- respects in fay.
       specialize (unique _ _ (conj fax fay)).
       assumption.
   Defined.
-
+  
   Theorem lift_eq : forall {T : Type} (f : A -> Classical T)
                            (respects : forall a b, R a b -> f a = f b)
                            (a : A), lift f respects (mk a) = f a.
@@ -170,16 +231,84 @@ Module Quotient (EqRel : EqRel).
     apply sigEq2.
     simpl.
     extensionality t0.
-    apply propositional_extensionality.
+    apply CProp_Ext.
+    - intros.
+      apply unwrap.
+      classical_auto.
+      destruct H as [a' [Ra'a fa't0]].
+      classical_auto.
+      specialize (respects a' a Ra'a).
+      rewrite respects in fa't0.
+      apply Preturn.
+      assumption.
+    - intros.
+      classical_auto.
+      apply Preturn.
+      exists a.
+      split.
+      + apply Preturn. apply Rrefl.
+      + assumption.
+  Qed.
+  
+  Definition unwrap_quot (x : [[| t |]]) : t.
+    specialize x as [S [existence uniqueness]].
+    refine (exist _ (fun a => S (mk a)) _).
     split.
     - intros.
-      specialize (H a (Rrefl _)).
+      split.
+      + intros.
+        apply unwrap.
+        classical_auto.
+        rewrite (sound _ _ H0) in H.
+        apply Preturn.
+        assumption.
+      + intros.
+        specialize (uniqueness _ _ (conj H H0)).
+        classical_auto.        
+        apply complete.
+        assumption.
+    - classical_auto.
+      specialize existence as [x Sx].
+      assert (xismk := isMk x).
+      classical_auto.
+      destruct xismk as [a p].
+      subst.
+      apply Preturn.
+      exists a.
       assumption.
+  Defined.
+
+  Theorem unwrapDef (x : t) : unwrap_quot (Creturn x) = x.
+  Proof.
+    apply sigEq2.
+    simpl.
+    extensionality a.
+    apply CProp_Ext.
     - intros.
-      specialize (respects _ _ H0).
-      rewrite respects.
-      assumption.
-  Qed.
+      apply unwrap.
+      classical_auto.
+      subst.
+      simpl.
+      repeat apply Preturn.
+      apply Rrefl.
+    - intros.
+      classical_auto.
+      apply Preturn.
+      apply sigEq2.
+      simpl.
+      extensionality a'.
+      apply CProp_Ext.
+      + intros.
+        classical_auto.
+        apply (proj1 (proj2_sig x) _ _ H).
+        classical_auto.
+        apply Preturn.
+        apply Rsym.
+        assumption.
+      + intros.
+        apply (proj1 (proj2_sig x) _ _ H0).
+        assumption.
+  Qed. (* Surely this proof can be simplified or written in terms of something else? *)
 
   Check lift.
   Definition lift2 {T : Type} (f : A -> A -> Classical T)
@@ -193,12 +322,15 @@ Module Quotient (EqRel : EqRel).
       apply respects; auto.
       apply Rrefl.
     - intros.
-      refine (ind (fun y => lift (fun b0 : A => f a b0) _ y =
-                              lift (fun b0 : A => f b b0) _ y) _ y).
-      intros.
-      repeat rewrite lift_eq.
-      apply respects; auto.
-      apply Rrefl.
+      assert (lift (fun x => f a x) (fun a' b' H' => respects a a' a b' (Rrefl a) H') =
+                lift (fun x => f b x) (fun a' b' H' => respects b a' b b' (Rrefl b) H')). {
+        apply f_equal_dep_prop.
+        extensionality c.
+        apply respects; auto.
+        apply Rrefl.
+      }
+      rewrite H0.
+      reflexivity.
   Defined.
 
   Theorem lift2_eq {T : Type} (f : A -> A -> Classical T)
@@ -211,105 +343,88 @@ Module Quotient (EqRel : EqRel).
     reflexivity.
   Qed.
 
-  (* I think without the double negation in the definition of Quotient, I can't
-   define this from lift.
-   But: is it possible to define this directly in terms of ind?
-   *)
   Definition map (f : A -> A)
              (respects : forall x x', R x x' -> R (f x) (f x'))
              (t1 : t): t.
-    refine (exist _ (fun c => forall a, proj1_sig t1 a -> R (f a) c) _).
-    destruct t1 as [S1 [unique1 [a1 S1a]]].
-    simpl in *.
-    split.
-    - intros.
-      split.
-      + intros.
-        specialize (H a H1).
-        apply (Rtrans _ x); auto.
-      + intros.
-        specialize (H a1 S1a).
-        specialize (H0 a1 S1a).
-        apply (Rtrans _ (f a1)).
-        * apply Rsym.
-          assumption.
-        * assumption.
-    - exists (f a1).
-      intros.
-      apply respects.
-      + apply unique1; assumption.
+    apply unwrap_quot.
+    refine (lift (fun a => Creturn (mk (f a))) _ t1).
+    intros.
+    apply f_equal.
+    apply sound.
+    apply respects.
+    apply H.
   Defined.
 
   Theorem map_eq (f : A -> A)
           (respects : forall x x', R x x' -> R (f x) (f x'))
           (a : A) : map f respects (mk a) = mk (f a).
   Proof.
-    apply sigEq2.
-    simpl.
-    extensionality c.
-    apply propositional_extensionality.
-    split.
-    - intros.
-      apply Rsym.
-      apply H.
-      + apply Rrefl.
-    - intros.
-      apply Rsym.
-      apply (Rtrans _ (f a)); auto.
-      apply respects.
-      + apply Rsym.
-        assumption.
+    unfold map.
+    rewrite lift_eq.
+    rewrite unwrapDef.
+    reflexivity.
   Qed.
-  
+
   Definition map2 (f : A -> A -> A)
              (respects : forall x y x' y', R x x' -> R y y' -> R (f x y) (f x' y'))
              (t1 t2 : t): t.
-    refine (exist _ (fun c => forall a b, proj1_sig t1 a -> proj1_sig t2 b -> R (f a b) c) _).
-    destruct t1 as [S1 [unique1 [a1 S1a]]].
-    destruct t2 as [S2 [unique2 [a2 S2a]]].
-    simpl in *.
-    split.
-    - intros.
-      split.
-      + intros.
-        specialize (H a b H1 H2).
-        apply (Rtrans _ x); auto.
-      + intros.
-        specialize (H a1 a2 S1a S2a).
-        specialize (H0 a1 a2 S1a S2a).
-        apply (Rtrans _ (f a1 a2)).
-        * apply Rsym.
-          assumption.
-        * assumption.
-    - exists (f a1 a2).
-      intros.
-      apply respects.
-      + apply unique1; assumption.
-      + apply unique2; assumption.
+    apply unwrap_quot.
+    refine (lift2 (fun a b => Creturn (mk (f a b))) _ t1 t2).
+    intros.
+    apply f_equal.
+    apply sound.
+    apply respects.
+    apply H. apply H0.
   Defined.
 
   Theorem map2_eq (f : A -> A -> A)
           (respects : forall x y x' y', R x x' -> R y y' -> R (f x y) (f x' y'))
           (a b : A) : map2 f respects (mk a) (mk b) = mk (f a b).
   Proof.
+    unfold map2.
+    rewrite lift2_eq.
+    rewrite unwrapDef.
+    reflexivity.
+  Qed.
+  
+  Theorem unwrap_eq_quot (x y : t) : [x = y] -> x = y.
+  Proof.
+    intros eq.
     apply sigEq2.
+    destruct x, y.
     simpl.
-    extensionality c.
-    apply propositional_extensionality.
-    split.
+    assert [x = x0]. {
+      classical_auto.
+      apply (@f_equal _ _ (@proj1_sig _ _)) in eq.
+      simpl in eq.
+      apply Preturn.
+      assumption.
+    }
+    clear a a0 eq.
+    extensionality t.
+    apply CProp_Ext.
     - intros.
-      apply Rsym.
-      apply H.
-      + apply Rrefl.
-      + apply Rrefl.
+      apply unwrap.
+      classical_auto.
+      subst.
+      apply Preturn.
+      assumption.
     - intros.
-      apply Rsym.
-      apply (Rtrans _ (f a b)); auto.
-      apply respects.
-      + apply Rsym.
-        assumption.
-      + apply Rsym.
-        assumption.
+      apply unwrap.
+      classical_auto.
+      apply Preturn.
+      subst.
+      assumption.
   Qed.
 
+  Ltac quot_induction H :=
+  let H2 := fresh "H2" in
+  let eq := fresh "eq" in
+  let new := fresh "x" in
+  let Px := fresh "Px" in
+  pose (H2 := isMk H);
+  pbind H2;
+  specialize H2 as [new eq];
+  rewrite eq in *;
+  clear eq.
 End Quotient.

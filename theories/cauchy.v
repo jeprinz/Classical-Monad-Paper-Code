@@ -1936,6 +1936,7 @@ Proof.
       assumption.
 Qed.
 
+(*
 Definition real_int_bound (r : cauchy) : [[| Z |]].
   refine (exist _ (fun z => Cle r (QinjR (inject_Z z)) /\
                               forall z', (Cle r (QinjR (inject_Z z))) -> Z.le z z') _).
@@ -1950,10 +1951,10 @@ Definition real_int_bound (r : cauchy) : [[| Z |]].
     (*Check (Cbind (seq r N) (fun rN => Creturn (rational_bounded_by_int rN))).*)
   (* uniqueness *)
 Abort.
+*)
 
-
-(* TODO: I can use this to simplify the definition of Cmult,
- instead in that definition I build in bound1 and bound2 *)
+(* TODO TODO: I should be able to implement this without referring directly to the
+ definition of Classical *)
 Theorem real_bounded_above_rational :
   forall r, [exists q, Cle r (QinjR q)].
 Proof.
@@ -1964,6 +1965,7 @@ Proof.
   assert (prop := property r 1 indeed).
   classical_auto.
   specialize prop as [N prop].
+  pose (thing := seq r N).
   assert (fact := proj2_sig (seq r N)).
   specialize fact as [rNexists rnUnique].
   classical_auto.
@@ -1981,6 +1983,7 @@ Proof.
   simpl.
   classical_auto.
   simpl in qIsRn.
+  classical_auto.
   subst.
   apply Preturn.
   apply (Qle_trans _ 0).
@@ -1998,6 +2001,7 @@ Proof.
   field.
 Qed.
 
+(* TODO: this one as well, I shouldn't have to refer directly to the definition ideally *)
 Theorem real_bounded_below_rational :
   forall r, [exists q, Cle (QinjR q) r].
 Proof.
@@ -2025,6 +2029,7 @@ Proof.
   simpl.
   classical_auto.
   simpl in qIsRn.
+  classical_auto.
   subst.
   apply Preturn.
   apply (Qle_trans _ 0).
