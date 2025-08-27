@@ -150,18 +150,17 @@ Definition Cbind {A B : Type} (pa : Classical A) (f : A -> Classical B) : Classi
     simpl.
     destruct H.
     remember (f x) as fx.
-    destruct fx as [x0 [p sfsdfd]].
-    apply (Pbind p).
-    intros.
+    destruct fx as [SB [existenceB uniqueB]].
+    apply (Pbind existenceB).
+    intros [b SBb].
     apply Preturn.
-    destruct H0.
-    exists x1.
+    exists b.
     apply Preturn.
     exists x.
     split; auto.
     rewrite <- Heqfx.
     simpl.
-    assumption.
+    apply SBb.
   - intros x y [allx ally].
     apply (Pbind allx); clear allx; intros [ax [Saax fax]].
     apply (Pbind ally); clear ally; intros [ay [Saay fay]].
