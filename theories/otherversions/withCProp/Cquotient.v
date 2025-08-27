@@ -114,6 +114,38 @@ Module Quotient (EqRel : EqRel).
     auto.
   Qed.
 
+  Theorem isMk_extended : forall (q : t), [exists a, q = mk a /\ proj1_sig (proj1_sig q a)].
+  Proof.
+    intros.
+    remember q as q'.
+    destruct q as [S [property aaInS]].
+    apply (Pbind aaInS); intros [a aInS].
+    assert (q' = (mk a)). {
+      subst.
+      apply quotientEq.
+      extensionality a'.
+      apply CProp_Ext.
+      - intros.
+        classical_auto.
+        apply property; assumption.
+      - intros.
+        specialize (property a a' aInS).
+        classical_auto.
+        apply property.
+        classical_auto.
+        apply Preturn.
+        apply Rsym.
+        assumption.
+    }
+    apply Preturn.
+    exists a.
+    split.
+    - assumption.
+    - subst q'.
+      simpl.
+      assumption.
+  Qed.
+
   Theorem sound : forall a b, R a b -> mk a = mk b.
   Proof.
     intros.

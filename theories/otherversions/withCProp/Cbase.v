@@ -175,6 +175,78 @@ Definition Cbind {A B : Type} (pa : Classical A) (f : A -> Classical B) : Classi
     reflexivity.
 Defined.
 
+Definition Cbind' {A B : Type} (pa : Classical A) (f : A -> Classical B) : Classical B.
+  refine (exist _ (fun b => toCProp
+                              (exists a, isTrue (proj1_sig pa a) /\ isTrue (proj1_sig (f a) b))) _).
+  destruct pa as [Sa [nonempty same]].
+  simpl.
+  split.
+  - apply (Pbind nonempty).
+    intros.
+    simpl.
+    destruct H.
+    remember (f x) as fx.
+    destruct fx as [x0 [p sfsdfd]].
+    apply (Pbind p).
+    intros.
+    apply Preturn.
+    destruct H0.
+    exists x1.
+    apply Preturn.
+    exists x.
+    split; auto.
+    rewrite <- Heqfx.
+    simpl.
+    assumption.
+  - intros x y [allx ally].
+    apply (Pbind allx); clear allx; intros [ax [Saax fax]].
+    apply (Pbind ally); clear ally; intros [ay [Saay fay]].
+    specialize (same _ _ (conj Saax Saay)).
+    apply (Pbind same); clear same; intro same.
+    subst.
+    apply (Pbind (proj2 (proj2_sig (f ay)) _ _ (conj fax fay))).
+    intros.
+    subst.
+    apply Preturn.
+    reflexivity.
+Defined.
+
+Definition Cbind' {A B : Type} (pa : Classical A) (f : A -> Classical B) : Classical B.
+  refine (exist _ (fun b => toCProp
+                              (exists a, isTrue (proj1_sig pa a) /\ isTrue (proj1_sig (f a) b))) _).
+  destruct pa as [Sa [nonempty same]].
+  simpl.
+  split.
+  - apply (Pbind nonempty).
+    intros.
+    simpl.
+    destruct H.
+    remember (f x) as fx.
+    destruct fx as [x0 [p sfsdfd]].
+    apply (Pbind p).
+    intros.
+    apply Preturn.
+    destruct H0.
+    exists x1.
+    apply Preturn.
+    exists x.
+    split; auto.
+    rewrite <- Heqfx.
+    simpl.
+    assumption.
+  - intros x y [allx ally].
+    apply (Pbind allx); clear allx; intros [ax [Saax fax]].
+    apply (Pbind ally); clear ally; intros [ay [Saay fay]].
+    specialize (same _ _ (conj Saax Saay)).
+    apply (Pbind same); clear same; intro same.
+    subst.
+    apply (Pbind (proj2 (proj2_sig (f ay)) _ _ (conj fax fay))).
+    intros.
+    subst.
+    apply Preturn.
+    reflexivity.
+Defined.
+
 (* one of the monad laws *)
 Theorem bindDef : forall A B (a : A) (f : A -> Classical B),
     Cbind (Creturn a) f = f a.
@@ -583,6 +655,7 @@ Proof.
   - intros.
 Abort.
 
+(* TODO: rename this to something sane *)
 Theorem HowAboutThis (A B : Prop) : [A -> B] = (A -> [B]).
 Proof.
   apply propositional_extensionality.
@@ -603,6 +676,27 @@ Proof.
     apply Preturn.
     apply f.
     intros.
+    assumption.
+Qed.
+
+Theorem extra_monad_exists (A : Type) (B : A -> Prop)
+  : [exists (a : A), B a] = [exists (a : A), [B a]].
+Proof.
+  apply propositional_extensionality.
+  split.
+  - intros.
+    classical_auto.
+    apply Preturn.
+    destruct H.
+    exists x.
+    apply Preturn.
+    assumption.
+  - intros.
+    classical_auto.
+    destruct H.
+    classical_auto.
+    apply Preturn.
+    exists x.
     assumption.
 Qed.
 (*
@@ -634,6 +728,7 @@ Proof.
 Qed.
 (*
 Yes, but I need everything to be propositions, or else the sizes of the types would be different!
+LATER: no, they are both proppositions, the sizes are not different.
 But if A is a proposition then this is pretty useless.
  *)
 
