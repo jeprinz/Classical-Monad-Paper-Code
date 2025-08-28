@@ -168,3 +168,33 @@ Proof.
       apply Preturn.
       reflexivity.
 Qed.
+
+Require Import Nat.
+
+(*
+This is the function
+
+Fixpoint collatz (n : nat) : nat :=
+  if eqb n 1 then 0 else
+    1 + collatz (if eqb (modulo n 2) 0
+                 then (n / 2)
+                 else (n * 3) + 1).
+*)
+
+Definition collatz_prog (n : nat) : Prog nat nat :=
+  if eqb n 1 then Ret _ _ 0 else
+    Rec _ _ (if (eqb (modulo n 2) 0)
+             then n / 2
+             else (3 * n) + 1)
+        (fun res => Ret _ _ (1 + res)).
+
+Definition collatz : nat -> [[|option nat|]] :=
+  runProg collatz_prog.
+
+Goal collatz 6 = Creturn (Some 8).
+Proof.
+  unfold collatz, runProg, collatz_prog.
+  simpl.
+  repeat (simpl; rewrite ?runProgDefinitionRec, ?runProgDefinitionRet, ?bindDef).
+  reflexivity.
+Qed.
