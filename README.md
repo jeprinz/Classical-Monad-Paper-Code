@@ -1,5 +1,7 @@
 This is the code for the paper "A Monad for Nonconstructivity"
 
+The code is in the `theories` directory.
+
 ### Sections 2 and 6 - `base.v`
 
 The names in the formalization correspond to those in the paper except:
