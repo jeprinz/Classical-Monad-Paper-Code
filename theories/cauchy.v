@@ -11,11 +11,8 @@ Require Import PosDef.
 Require Import IntDef.
 Require Import rationalLemmas.
 
-(* Classical rational number *)
-Definition CQ := Classical Q.
-
 Record cauchy : Type :=
-  { seq : nat -> CQ
+  { seq : nat -> Classical Q
   ; property : forall epsilon : Q, epsilon > 0 -> [exists N : nat,
      forall n m : nat, le N n -> le N m ->
      toProp (
@@ -24,7 +21,6 @@ Record cauchy : Type :=
 
   }.
 
-(* Maybe I need an [] around the exists N ??? *)
 Definition Ceq (seq1 seq2 : cauchy) : Prop :=
     forall epsilon : Q, epsilon > 0 -> [exists N : nat, forall n : nat, le N n ->
      toProp (

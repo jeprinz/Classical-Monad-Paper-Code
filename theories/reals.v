@@ -8,8 +8,6 @@ Require Import Stdlib.Logic.PropExtensionality.
 Having formalized cauchy sequences up to equivalence in cauchy.v,
 and quotients, here I put them together into a type of real numbers
 using equality
-
-In reals2, I'm using quotient2
  *)
 
 Module CauchyEq <: EqRel. (*NOTE: <: makes the contents transparent from the outside, as oppsed to : *)
