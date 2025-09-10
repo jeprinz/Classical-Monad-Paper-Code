@@ -1,9 +1,5 @@
 Require Import PropExtensionality. (*this line also imports proof irrelevance*)
 
-
-
-Search (_ _ = _ _) -nat.
-
 Theorem f_equal_dep_prop (A B : Type) (P : A -> Prop)
         (f : forall (a : A), P a -> B)
         (a1 a2 : A)
@@ -17,18 +13,25 @@ Proof.
   apply proof_irrelevance.
 Qed.
 
-Print Assumptions f_equal_dep_prop.
-
-(*
-Require Import Stdlib.Logic.JMeq.
-
-(* This would require using another axiom! *)
-Print Assumptions JMeq_congr.
-
-(* need dep version if possible*)
-Theorem JMeq_app (A B : Type) (f1 f2 : A -> B) (a1 a2 : A)
-        (eqf : JMeq f1 f2) (eqa : JMeq a1 a2) : JMeq (f1 a1) (f2 a2).
+Theorem sigEq :
+  forall A P S1 S2 p1 p2,
+    S1 = S2 -> @eq {a : A | P a} (exist _ S1 p1) (exist _ S2 p2).
 Proof.
-  Print JMeq.
-  
-*)
+  intros.
+  subst S1.
+  assert (p1 = p2).
+  apply proof_irrelevance.
+  subst p1.
+  reflexivity.
+Qed.
+
+Theorem sigEq2:
+  forall A P (x y : {a : A | P a}), proj1_sig x = proj1_sig y -> x = y.
+Proof.
+  intros.
+  destruct x.
+  destruct y.
+  simpl in H.
+  apply sigEq.
+  assumption.
+Qed.

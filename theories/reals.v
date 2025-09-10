@@ -344,6 +344,27 @@ Proof.
   apply Cle_mult_property; assumption.
 Qed.
 
+Theorem RzeroNotOne : Rzero <> Rone.
+Proof.
+  intros p.
+  unfold Rzero, Rone in *.
+  apply Reals.complete in p.
+  apply classical_consistent.
+  classical_auto.
+  apply Preturn.
+  apply zeroNotOne.
+  assumption.
+Qed.
+  
+Theorem RzeroLeOne : Rle Rzero Rone.
+Proof.
+  unfold Rle, Rzero, Rone.
+  repeat rewrite Reals.lift2_eq.
+  classical_auto.
+  apply Preturn.
+  apply zeroLeOne.
+Qed.
+  
 Check total_ordering.
 Theorem Rtotal_ordering : forall x y, [Rle x y \/ Rle y x].
 Proof.
@@ -519,6 +540,7 @@ Proof.
   apply Preturn.
   assumption.
 Qed.
+
       
 (*
 Here is everything in one place to check that I have fully formalized the real numbers.
@@ -539,24 +561,26 @@ Check Rle_antisymmetry : forall x y : R, Rle x y -> Rle y x -> x = y.
 Check Rle_refl : forall x : R, Rle x x.
 
 (* Field Axioms *)
-Check Rplus_assoc : forall x y z : R, Rplus x (Rplus y z) = Rplus (Rplus x y) z.
-Check Radditive_identity_l : forall x : R, Rplus x Rzero = x.
-Check Radditive_identity_r.
-Check Radditive_inverse_l.
-Check Radditive_inverse_r.
-Check Rplus_comm.
-Check Rplus_assoc.
-Check Rmultiplicative_identity_l.
-Check Rmultiplicative_identity_r.
-Check Rmultiplicative_inverse_l.
-Check Rmultiplicative_inverse_r.
-Check Rmult_comm.
-Check Rdistributivity.
+Check Rplus_assoc : forall x y z, Rplus x (Rplus y z) = Rplus (Rplus x y) z.
+Check Radditive_identity_l : forall x, Rplus x Rzero = x.
+Check Radditive_identity_r : forall x, Rplus Rzero x = x.
+Check Radditive_inverse_l : forall x, Rplus (Ropp x) x = Rzero.
+Check Radditive_inverse_r : forall x, Rplus x (Ropp x) = Rzero.
+Check Rplus_comm : forall x y, Rplus x y = Rplus y x.
+Check Rplus_assoc : forall x y z, Rplus x (Rplus y z) = Rplus (Rplus x y) z.
+Check Rmultiplicative_identity_l : forall x, Rmult x Rone = x.
+Check Rmultiplicative_identity_r : forall x : R, Rmult Rone x = x.
+Check Rmultiplicative_inverse_l : forall x (H : x <> Rzero), Rmult (Rinv x H) x = Rone.
+Check Rmultiplicative_inverse_r : forall x (H : x <> Rzero), Rmult x (Rinv x H) = Rone.
+Check Rmult_comm : forall x y, Rmult x y = Rmult y x.
+Check Rdistributivity : forall x y z, Rmult x (Rplus y z) = Rplus (Rmult x y) (Rmult x z).
 
 (* Total ordering *)
 Check Rtotal_ordering. (* This is the only one of the axioms that needs to be under a monad *)
 Check Rle_add_property.
 Check Rle_mult_property.
+Check RzeroNotOne.
+Check RzeroLeOne.
 
 (* least upper bounds *)
 Check Rlub.
@@ -571,7 +595,7 @@ Definition all_definitions :=
     Radditive_inverse_r, Rplus_comm, Rplus_assoc, Rmultiplicative_identity_r,
     Rmultiplicative_identity_l, Rmultiplicative_inverse_l, Rmultiplicative_inverse_r, Rmult_comm,
     Rdistributivity,
-    Rtotal_ordering, Rle_add_property, Rle_mult_property,
+    Rtotal_ordering, Rle_add_property, Rle_mult_property, RzeroNotOne, RzeroLeOne,
     Rlub, Rlub_is_bound, Rlub_is_optimal).
 
 Print Assumptions all_definitions.

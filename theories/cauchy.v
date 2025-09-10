@@ -60,10 +60,10 @@ Definition Cplus (seq1 seq2 : cauchy) : cauchy.
 
   specialize (p1 n m (Nat.max_lub_l _ _ _ H0) (Nat.max_lub_l _ _ _ H1)).
   specialize (p2 n m (Nat.max_lub_r _ _ _ H0) (Nat.max_lub_r _ _ _ H1)).
-  asreturn2 (seq seq1 n).
-  asreturn2 (seq seq2 n).
-  asreturn2 (seq seq1 m).
-  asreturn2 (seq seq2 m).
+  classical_induction (seq seq1 n).
+  classical_induction (seq seq2 n).
+  classical_induction (seq seq1 m).
+  classical_induction (seq seq2 m).
 
   classical_auto.
   apply Preturn.
@@ -295,8 +295,8 @@ Proof.
   exists N.
   intros.
   specialize (H n H1).
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
   classical_auto.
   apply Preturn.
   Search Qle Qeq.
@@ -352,10 +352,10 @@ Proof.
   specialize (propx N3 n (Nat.max_lub_l _ _ _ N3le) (Nat.max_lub_l _ _ _ H)).
   specialize (propy N3 n (Nat.max_lub_r _ _ _ N3le) (Nat.max_lub_r _ _ _ H)).
 
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
-  asreturn2 (seq y N3).
-  asreturn2 (seq x N3).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
+  classical_induction (seq y N3).
+  classical_induction (seq x N3).
   classical_auto.
   apply Preturn.
 
@@ -436,10 +436,10 @@ Proof.
   specialize (propx N3 n (Nat.max_lub_l _ _ _ N3le) (Nat.max_lub_l _ _ _ H)).
   specialize (propy N3 n (Nat.max_lub_r _ _ _ N3le) (Nat.max_lub_r _ _ _ H)).
 
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
-  asreturn2 (seq y N3).
-  asreturn2 (seq x N3).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
+  classical_induction (seq y N3).
+  classical_induction (seq x N3).
   classical_auto.
   apply Preturn.
 
@@ -484,8 +484,8 @@ Proof.
   exists N.
   intros.
   specialize (fact n H1).
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
   classical_auto.
   apply Preturn.
   Search Qle Qplus 0%Q.
@@ -510,8 +510,8 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
   specialize bound2 as [boundN2 bound2fact].
   specialize (bound1fact boundN1).
   specialize (bound2fact boundN2).
-  asreturn2 (seq seq1 boundN1).
-  asreturn2 (seq seq2 boundN2).
+  classical_induction (seq seq1 boundN1).
+  classical_induction (seq seq2 boundN2).
   rename x0 into y. (* These bounds are within 1 of the value of seq1 and seq2*)
   pose (bound1 := (Qabs x) + 1).
   pose (bound2 := (Qabs y) + 1).
@@ -521,7 +521,7 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
     as bound1fact'. {
     intros.
     specialize (bound1fact m (Nat.le_refl _) H0).
-    asreturn2 (seq seq1 m).
+    classical_induction (seq seq1 m).
     classical_auto.
     apply Preturn.
     unfold bound1.
@@ -543,7 +543,7 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
     as bound2fact'. {
     intros.
     specialize (bound2fact m (Nat.le_refl _) H0).
-    asreturn2 (seq seq2 m).
+    classical_induction (seq seq2 m).
     classical_auto.
     apply Preturn.
     unfold bound2.
@@ -591,10 +591,10 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
   assert (bound1fact_2 := bound1fact' m (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ H1))).
   assert (bound2fact_1 := bound2fact' n (Nat.max_lub_r _ _ _ (Nat.max_lub_l _ _ _ H0))).
   assert (bound2fact_2 := bound2fact' m (Nat.max_lub_r _ _ _ (Nat.max_lub_l _ _ _ H1))).
-  asreturn2 (seq seq1 n).
-  asreturn2 (seq seq2 n).
-  asreturn2 (seq seq1 m).
-  asreturn2 (seq seq2 m).
+  classical_induction (seq seq1 n).
+  classical_induction (seq seq2 n).
+  classical_induction (seq seq1 m).
+  classical_induction (seq seq2 m).
 
   classical_auto.
   apply Preturn.
@@ -716,8 +716,8 @@ Proof.
   exists 0%nat.
   intros.
   specialize (H n).
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
   classical_auto.
   apply Preturn.
   (* Is this sort of garbage really the easiest way to prove basic rational number stuff in rocq? *)
@@ -745,7 +745,7 @@ Proof.
   intros.
   apply exact_equality.
   intros.
-  asreturn2 (seq x n).
+  classical_induction (seq x n).
   classical_auto.
   apply Preturn.
   reflexivity.
@@ -760,8 +760,8 @@ Proof.
 
   simpl.
 
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
 
   classical_auto.
   apply Preturn.
@@ -774,9 +774,9 @@ Proof.
   apply exact_equality.
   intros.
   simpl.
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
-  asreturn2 (seq z n).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
+  classical_induction (seq z n).
   classical_auto.
   apply Preturn.
   apply Qplus_assoc.
@@ -790,8 +790,8 @@ Proof.
 
   simpl.
 
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
 
   classical_auto.
   apply Preturn.
@@ -832,9 +832,9 @@ Proof.
   specialize (H1 n (Nat.le_trans _ _ _ (Nat.le_max_l N1 N2) H0)).
   specialize (H2 n (Nat.le_trans _ _ _ (Nat.le_max_r N1 N2) H0)).
 
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
-  asreturn2 (seq z n).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
+  classical_induction (seq z n).
   classical_auto.
   apply Preturn.
 
@@ -856,8 +856,8 @@ Proof.
   exists N.
   intros.
   specialize (H n H1).
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
   classical_auto.
   apply Preturn.
   apply Qabs_Qle_condition in H as [_ H].
@@ -900,8 +900,8 @@ Proof.
   intros.
   specialize (H1 n (Nat.max_lub_l _ _ _ H0)).
   specialize (H2 n (Nat.max_lub_r _ _ _ H0)).
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
   classical_auto.
   apply Preturn.
   apply Qabs_Qle_condition.
@@ -964,7 +964,7 @@ Proof.
     simpl.
     assumption.
   - simpl in *.
-    asreturn2 (converging startTop startBot decide n).
+    classical_induction (converging startTop startBot decide n).
     destruct x as [t b].
     classical_auto.
     simpl in *.
@@ -1020,16 +1020,16 @@ Proof.
 
   induction p.
   - simpl in *.
-    asreturn2 (converging startTop startBot decide n).
+    classical_induction (converging startTop startBot decide n).
     destruct x as [b t].
     classical_auto.
     apply Preturn.
     split; apply Qle_refl.
-  - asreturn2 (converging startTop startBot decide n).
+  - classical_induction (converging startTop startBot decide n).
     destruct x as [tn bn].
     simpl in *.
     assert (separation := separate startTop startBot decide (p + n)).
-    asreturn2 (converging startTop startBot decide (p + n)).
+    classical_induction (converging startTop startBot decide (p + n)).
     destruct x as [tpn bpn].
     classical_auto.
     simpl in *.
@@ -1100,7 +1100,7 @@ Proof.
     field.
   - classical_auto.
     simpl in *.
-    asreturn2 (converging startTop startBot decide n).
+    classical_induction (converging startTop startBot decide n).
     classical_auto.
     apply (Pbind (Plem (decide ((snd x + fst x) / 2)))); intros yesorno.
 
@@ -1268,7 +1268,7 @@ Proof.
 
   exists n.
   assert (lemma := bound_size_converging_intervals startTop startBot decide n).
-  asreturn2 (converging startTop startBot decide n).
+  classical_induction (converging startTop startBot decide n).
   classical_auto.
   apply Preturn.
   destruct x as [t b].
@@ -1311,9 +1311,9 @@ Definition converging_cauchy (startTop startBot: Q) (decide : Q -> Prop) (separa
     assert (separate_n := separate startTop startBot decide n separateStart).
     assert (separate_m := separate startTop startBot decide m separateStart).
 
-    asreturn2 (converging startTop startBot decide N).
-    asreturn2 (converging startTop startBot decide n).
-    asreturn2 (converging startTop startBot decide m).
+    classical_induction (converging startTop startBot decide N).
+    classical_induction (converging startTop startBot decide n).
+    classical_induction (converging startTop startBot decide m).
 
     classical_auto.
     apply Preturn.
@@ -1355,9 +1355,9 @@ Definition converging_cauchy (startTop startBot: Q) (decide : Q -> Prop) (separa
     assert (separate_n := separate startTop startBot decide n separateStart).
     assert (separate_m := separate startTop startBot decide m separateStart).
 
-    asreturn2 (converging startTop startBot decide N).
-    asreturn2 (converging startTop startBot decide n).
-    asreturn2 (converging startTop startBot decide m).
+    classical_induction (converging startTop startBot decide N).
+    classical_induction (converging startTop startBot decide n).
+    classical_induction (converging startTop startBot decide m).
 
     classical_auto.
     apply Preturn.
@@ -1406,8 +1406,8 @@ Proof.
   assert (mono := monotonic startTop startBot decide N n H0 diff).
   simpl seq.
 
-  asreturn2 (converging startTop startBot decide n).
-  asreturn2 (converging startTop startBot decide N).
+  classical_induction (converging startTop startBot decide n).
+  classical_induction (converging startTop startBot decide N).
   classical_auto.
   clear u b.
   apply Preturn.
@@ -1461,7 +1461,7 @@ Proof.
     simpl.
     auto.
   - simpl in *.
-    asreturn2 (converging startTop startBot decide n).
+    classical_induction (converging startTop startBot decide n).
     destruct x as [t b].
     classical_auto.
     simpl in *.
@@ -1703,7 +1703,7 @@ Proof.
   
   simpl in propertyseq. (* this causes the problem of unfolding Qabs. I have to re-fold it later *)
   
-  asreturn2 (converging startTop startBot (make_decider S) (max N1 N2)).
+  classical_induction (converging startTop startBot (make_decider S) (max N1 N2)).
   classical_auto.
   unfold make_decider in ltprop.
   specialize ltprop as [_ ltprop].
@@ -1734,9 +1734,9 @@ Proof.
   specialize (propertyr (max (max N1 N2) N3) n
                         (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ (Nat.le_refl _)))
                         (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ H0))).
-  asreturn2 (converging startTop startBot (make_decider S) n).
-  asreturn2 (seq r (max (max N1 N2) N3)).
-  asreturn2 (seq r n).
+  classical_induction (converging startTop startBot (make_decider S) n).
+  classical_induction (seq r (max (max N1 N2) N3)).
+  classical_induction (seq r n).
   simpl in ltprop.
 
   destruct x as [uN1N2 bN1N2].
@@ -1833,7 +1833,7 @@ Proof.
   
   simpl in propertyseq. (* this causes the problem of unfolding Qabs. I have to re-fold it later *)
   
-  asreturn2 (converging startTop startBot (make_decider S) (max N1 N2)).
+  classical_induction (converging startTop startBot (make_decider S) (max N1 N2)).
   classical_auto.
   unfold make_decider in ltprop.
   specialize ltprop as [ltprop _].
@@ -1868,9 +1868,9 @@ Proof.
   specialize (propertyb (max (max N1 N2) N3) n
                         (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ (Nat.le_refl _)))
                         (Nat.max_lub_l _ _ _ (Nat.max_lub_l _ _ _ H0))).
-  asreturn2 (converging startTop startBot (make_decider S) n).
-  asreturn2 (seq otherbound (max (max N1 N2) N3)).
-  asreturn2 (seq otherbound n).
+  classical_induction (converging startTop startBot (make_decider S) n).
+  classical_induction (seq otherbound (max (max N1 N2) N3)).
+  classical_induction (seq otherbound n).
   simpl in ltprop.
 
   destruct x as [uN1N2 bN1N2].
@@ -1978,8 +1978,8 @@ Proof.
   exists N.
   intros.
   specialize (prop N n (Nat.le_refl _) H0).
-  asreturn2 (seq r N).
-  asreturn2 (seq r n).
+  classical_induction (seq r N).
+  classical_induction (seq r n).
   simpl.
   classical_auto.
   simpl in qIsRn.
@@ -2024,8 +2024,8 @@ Proof.
   exists N.
   intros.
   specialize (prop N n (Nat.le_refl _) H0).
-  asreturn2 (seq r N).
-  asreturn2 (seq r n).
+  classical_induction (seq r N).
+  classical_induction (seq r n).
   simpl.
   classical_auto.
   simpl in qIsRn.
@@ -2196,9 +2196,9 @@ Proof.
 
   simpl (seq (Cplus a b) n).
   simpl (seq (Cplus a' b) n).
-  asreturn2 (seq a n).
-  asreturn2 (seq a' n).
-  asreturn2 (seq b n).
+  classical_induction (seq a n).
+  classical_induction (seq a' n).
+  classical_induction (seq b n).
 
   classical_auto.
   apply Preturn.
@@ -2286,9 +2286,9 @@ Proof.
   simpl (seq (Cmult a' b) n).
   simpl in bounduprop.
   simpl in boundlprop.
-  asreturn2 (seq a n).
-  asreturn2 (seq a' n).
-  asreturn2 (seq b n).
+  classical_induction (seq a n).
+  classical_induction (seq a' n).
+  classical_induction (seq b n).
   
   classical_auto.
   apply Preturn.
@@ -2370,7 +2370,7 @@ Proof.
   apply exact_equality.
   intros.
   simpl.
-  asreturn2 (seq x n).
+  classical_induction (seq x n).
   classical_auto.
   apply Preturn.
   field.
@@ -2382,7 +2382,7 @@ Proof.
   apply exact_equality.
   intros.
   simpl.
-  asreturn2 (seq x n).
+  classical_induction (seq x n).
   classical_auto.
   apply Preturn.
   field.
@@ -2394,7 +2394,7 @@ Proof.
   apply exact_equality.
   intros.
   simpl.
-  asreturn2 (seq x n).
+  classical_induction (seq x n).
   classical_auto.
   apply Preturn.
   field.
@@ -2406,7 +2406,7 @@ Proof.
   apply exact_equality.
   intros.
   simpl.
-  asreturn2 (seq x n).
+  classical_induction (seq x n).
   classical_auto.
   apply Preturn.
   field.
@@ -2441,8 +2441,8 @@ Proof.
     exists N.
     intros.
     specialize (prop n H2).
-    asreturn2 (seq x n).
-    asreturn2 (seq y n).
+    classical_induction (seq x n).
+    classical_induction (seq y n).
     classical_auto.
     apply Preturn.
     Search Qabs Qle.
@@ -2459,8 +2459,8 @@ Proof.
     exists N.
     intros.
     specialize (prop n H1).
-    asreturn2 (seq x n).
-    asreturn2 (seq y n).
+    classical_induction (seq x n).
+    classical_induction (seq y n).
     classical_auto.
     apply Preturn.
     Search Qabs Qeq Qopp.
@@ -2591,8 +2591,8 @@ Definition Cinv (x : cauchy) (nonzero : ~ (Ceq x Czero)) : cauchy.
   clear apart.
   specialize (xprop n m (Nat.max_lub_r _ _ _ H0) (Nat.max_lub_r _ _ _ H1)).
 
-  asreturn2 (seq x n).
-  asreturn2 (seq x m).
+  classical_induction (seq x n).
+  classical_induction (seq x m).
   classical_auto.
   apply Preturn.
 
@@ -2631,8 +2631,8 @@ Proof.
   specialize (aparty n (Nat.max_lub_r _ _ _ (Nat.max_lub_l _ _ _ H3))).
   
   simpl (seq Czero _) in apartx, aparty.
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
   classical_auto.
   apply Preturn.
 
@@ -2661,9 +2661,9 @@ Proof.
   specialize (leab n H0).
 
   simpl (seq (Cplus _ _) _).
-  asreturn2 (seq a n).
-  asreturn2 (seq b n).
-  asreturn2 (seq c n).
+  classical_induction (seq a n).
+  classical_induction (seq b n).
+  classical_induction (seq c n).
 
   classical_auto.
   apply Preturn.
@@ -2702,8 +2702,8 @@ Proof.
 
   simpl (seq (Cplus _ _) _).
   simpl (seq Czero _) in *.
-  asreturn2 (seq a n).
-  asreturn2 (seq b n).
+  classical_induction (seq a n).
+  classical_induction (seq b n).
 
   classical_auto.
   apply Preturn.
@@ -2881,8 +2881,8 @@ Proof.
   simpl (seq (QinjR _) _) in *.
   simpl (seq (Cmult _ _) _).
   simpl (seq Czero _) in *.
-  asreturn2 (seq a n).
-  asreturn2 (seq b n).
+  classical_induction (seq a n).
+  classical_induction (seq b n).
 
   classical_auto.
   apply Preturn.
@@ -2959,7 +2959,7 @@ Proof.
   apply exact_equality.
   intros.
   simpl.
-  asreturn2 (seq x n).
+  classical_induction (seq x n).
   classical_auto.
   apply Preturn.
   field.
@@ -2971,7 +2971,7 @@ Proof.
   apply exact_equality.
   intros.
   simpl.
-  asreturn2 (seq x n).
+  classical_induction (seq x n).
   classical_auto.
   apply Preturn.
   field.
@@ -2994,7 +2994,7 @@ Proof.
   simpl (seq Czero _) in prop.
   simpl (seq (Cmult x (Cinv x H)) n).
   simpl (seq Cone n).
-  asreturn2 (seq x n).
+  classical_induction (seq x n).
   classical_auto.
   apply Preturn.
 
@@ -3025,7 +3025,7 @@ Proof.
   simpl (seq Czero _) in prop.
   simpl (seq (Cmult (Cinv x H) x) n).
   simpl (seq Cone n).
-  asreturn2 (seq x n).
+  classical_induction (seq x n).
   classical_auto.
   apply Preturn.
 
@@ -3046,13 +3046,46 @@ Proof.
   apply exact_equality.
   intros.
   simpl.
-  asreturn2 (seq x n).
-  asreturn2 (seq y n).
-  asreturn2 (seq z n).
+  classical_induction (seq x n).
+  classical_induction (seq y n).
+  classical_induction (seq z n).
   classical_auto.
   apply Preturn.
   Search Q "dist".
   apply Qmult_plus_distr_r.
+Qed.
+
+Theorem zeroLeOne : Cle Czero Cone.
+Proof.
+  unfold Cle, Czero, Cone.
+  simpl.
+  intros.
+  apply Preturn.
+  exists 0%nat.
+  intros.
+  classical_auto.
+  apply Preturn.
+  apply Qlt_le_weak in H.
+  apply (Qle_trans _ 0); auto.
+  easy.
+Qed.
+
+Theorem zeroNotOne : ~ (Ceq Czero Cone).
+Proof.
+  intros eq.
+  unfold Ceq in eq.
+  assert (0 < 1 / 2). {
+    repeat constructor.
+  }
+  specialize (eq (1 / 2) H).
+  apply classical_consistent.
+  classical_auto.
+  destruct eq.
+  specialize (H0 x (le_n _)).
+  simpl in H0.
+  classical_auto.
+  simpl in H0.
+  easy.
 Qed.
 
 (*
@@ -3104,6 +3137,8 @@ Check distributivity.
 Check total_ordering.
 Check Cle_add_property.
 Check Cle_mult_property.
+Check zeroNotOne.
+Check zeroLeOne.
 
 (* Existence of least upper bounds *)
 Check lub_but_its_only_a_prop.
@@ -3117,6 +3152,8 @@ Definition all_definitions :=
     additive_inverse_r, Cplus_comm, Cplus_assoc, multiplicative_identity_r,
     multiplicative_identity_l, multiplicative_inverse_l, multiplicative_inverse_r, Cmult_comm,
     distributivity,
-    total_ordering, Cle_add_property, Cle_mult_property, lub_but_its_only_a_prop).
+    total_ordering, Cle_add_property, Cle_mult_property, zeroNotOne, zeroLeOne,
+    lub_but_its_only_a_prop).
 
 Print Assumptions all_definitions.
+

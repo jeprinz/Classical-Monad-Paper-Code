@@ -1,14 +1,10 @@
 Require Import Coq.Logic.ProofIrrelevance.
-(* Instead of using SProp, for now I'll just use the proof irrelevance axiom.
-   I'll see if this causes any issues; probably not. *)
 Require Import FunctionalExtensionality.
 Require Import Coq.Logic.PropExtensionality.
 
-(*
-In this versin of the monad for choice, I'm going to try making a special type of propositions that
-are all in the double negation monad.
-Following specialprop.agda
- *)
+Require Import util.
+
+(* Double Negation Monad *)
 
 Definition PClassical (P : Prop) : Prop := not (not P).
 Notation "[ T ]" := (PClassical T).
@@ -42,29 +38,6 @@ Definition toCProp (P : Prop) : CProp.
   exists P.
   reflexivity.
 Defined.
-
-Theorem sigEq :
-  forall A P S1 S2 p1 p2,
-    S1 = S2 -> @eq {a : A | P a} (exist _ S1 p1) (exist _ S2 p2).
-Proof.
-  intros.
-  subst S1.
-  assert (p1 = p2).
-  apply proof_irrelevance.
-  subst p1.
-  reflexivity.
-Qed.
-
-Theorem sigEq2:
-  forall A P (x y : {a : A | P a}), proj1_sig x = proj1_sig y -> x = y.
-Proof.
-  intros.
-  destruct x.
-  destruct y.
-  simpl in H.
-  apply sigEq.
-  assumption.
-Qed.
 
 Theorem CProp_Ext {P Q : CProp} (f : isTrue P -> isTrue Q) (g : isTrue Q -> isTrue P)
   : P = Q.
@@ -101,7 +74,7 @@ Proof.
   apply p.
 Qed.
 
-(* The "Unique" monad, that represents a unique thing that exists non-constructively *)
+(* The nonconstructivity monad, that represents a unique thing that exists non-constructively *)
 Definition Classical (A : Type) : Type :=
   {S : A -> CProp | PClassical (exists a, isTrue (S a))
                     /\ forall x y, isTrue (S x) /\ isTrue (S y) -> PClassical (x = y)}.
@@ -125,7 +98,6 @@ Definition Creturn {A : Type} (x : A) : Classical A.
     reflexivity.
 Defined.
 
-(* TODO: Confirm that the output really has to be in PClassical. *)
 Theorem CreturnInj : forall A (x y : A), Creturn x = Creturn y -> PClassical (x = y).
 Proof.
   intros.
@@ -175,7 +147,7 @@ Definition Cbind {A B : Type} (pa : Classical A) (f : A -> Classical B) : Classi
 Defined.
 
 (* one of the monad laws *)
-Theorem bindDef : forall A B (a : A) (f : A -> Classical B),
+Theorem monadlaw1 : forall A B (a : A) (f : A -> Classical B),
     Cbind (Creturn a) f = f a.
 Proof.
   intros.
@@ -228,8 +200,7 @@ Proof.
     reflexivity.
 Qed.
 
-(* Can I get this for this version? *)
-Theorem ClassicalInd T (t : Classical T)
+Theorem all_classical_return T (t : Classical T)
   : PClassical (exists x, Creturn x = t /\ (isTrue (proj1_sig t x))).
 Proof.
   destruct t as [St [nonempty same]].
@@ -260,34 +231,14 @@ Proof.
     assumption.
 Qed.
 
-(* unique choice *)
-Definition choose (T : Type) (P : T -> Prop)
-           (nonempty : PClassical (exists t, P t))
-           (unique : forall x y, P x /\ P y -> PClassical (x = y))
-  : Classical T.
-  refine (exist _ (fun t => toCProp (P t)) _).
-  split.
-  - simpl.
-    apply (Pbind nonempty); clear nonempty; intros [t Pt].
-    apply Preturn.
-    exists t.
-    apply Preturn.
-    assumption.
-  - intros x y [Px Py].
-    simpl in *.
-    apply (Pbind Px); clear Px; intros Px.
-    apply (Pbind Py); clear Py; intros Py.
-    specialize (unique _ _ (conj Px Py)).
-    assumption.
-Defined.
-
-Theorem choiceInd : forall (T : Type) (P : T -> Prop) (Q : Classical T -> Prop)
-                            nonempty unique,
-    (forall t, P t -> PClassical (Q (Creturn t)))
-    -> PClassical (Q (@choose T P nonempty unique)).
+Theorem ind : forall (A : Type)
+                     (Q : Classical A -> Prop)
+                     (S : A -> CProp) nonempty unique,
+    (forall t, isTrue (S t) -> [Q (Creturn t)])
+    -> PClassical (Q (exist _ S (conj nonempty unique))).
 Proof.
   intros.
-  apply (Pbind (ClassicalInd _ (choose T P nonempty unique))).
+  apply (Pbind (all_classical_return _ (exist _ S (conj nonempty unique)))).
   simpl.
   intros [St [eq PSt]].
   rewrite <- eq.
@@ -295,7 +246,6 @@ Proof.
   apply (Pbind nonempty); clear nonempty; intros [t Pt].
   specialize (H _ Pt).
   apply (Pbind H); clear H; intros H.
-  pbind PSt.
   specialize (unique _ _ (conj Pt PSt)).
   pbind unique.
   subst.
@@ -407,12 +357,12 @@ Proof.
   split; auto.
 Qed.
 
-Ltac asreturn2 H :=
+Ltac classical_induction H :=
   let H2 := fresh "H2" in
   let eq := fresh "eq" in
   let new := fresh "x" in
   let Px := fresh "Px" in
-  pose (H2 := ClassicalInd _ H);
+  pose (H2 := all_classical_return _ H);
   pbind H2;
   specialize H2 as [new [eq _]];
   rewrite <- eq in *;
@@ -527,7 +477,7 @@ Ltac classical_auto :=
       | H : Creturn ?something <> Creturn True |- _ => apply toPropRetNot in H
       end
     | apply toPropRet2
-    | rewrite bindDef in *
+    | rewrite monadlaw1 in *
     | rewrite toPropRetEq in *
     | simpl (isTrue (toCProp _)) in *].
 
@@ -755,13 +705,13 @@ Proof.
 Qed.
 
 (* This version remembers the knowledge of what the predicate was *)
-Ltac asreturn3 H :=
+Ltac classical_induction_full H :=
   let H2 := fresh "H2" in
   let eq := fresh "eq" in
   let new := fresh "x" in
   let Px := fresh "Px" in
   let defining_pred := fresh "defining_pred" in
-  pose (H2 := ClassicalInd _ H);
+  pose (H2 := all_classical_return _ H);
   pbind H2;
   specialize H2 as [new [eq defining_pred]];
   revert defining_pred;

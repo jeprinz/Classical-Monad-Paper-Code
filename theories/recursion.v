@@ -33,21 +33,27 @@ Proof.
 Qed.
 
 Definition runProgImpl {A B : Type} (def : A -> Prog A B) (p : Prog A B) : Classical (option B).
-  refine (choose _ (fun ob => (exists b, ob = Some b /\ runProgR def p b)
+  refine (exist _ (fun ob => toCProp ((exists b, ob = Some b /\ runProgR def p b)
                               \/
-                                (ob = None /\ ~ exists b, runProgR def p b)) _ _).
+                                (ob = None /\ ~ exists b, runProgR def p b))) _).
+  split.
   - apply (Pbind (Plem (exists b, runProgR def p b))).
     intros H.
     apply Preturn.
     destruct H as [[b r] | nr].
     + exists (Some b).
+      classical_auto.
+      apply Preturn.
       apply or_introl.
       exists b.
       auto.
     + exists None.
+      classical_auto.
+      apply Preturn.
       apply or_intror.
       auto.
   - intros x y [H1 H2].
+    classical_auto.
     destruct H1, H2.
     + destruct H as [b1 [p1 r1]].
       destruct H0 as [b2 [p2 r2]].
@@ -79,11 +85,12 @@ Theorem runProgDefinitionRet {A B : Type} (def : A -> Prog A B) (b : B)
 Proof.
   Check choiceInd.
   apply unwrap_eq.
-  apply (choiceInd _ _ (fun x => x = Creturn (Some b))).
-  intros ob H.
+  classical_induction_full (runProgImpl def (Ret A B b)).
+  simpl in defining_pred.
+  classical_auto.
   apply Preturn.
-  destruct ob.
-  - destruct H.
+  destruct x.
+  - destruct defining_pred.
     + destruct H.
       destruct H.
       inversion H.
@@ -93,7 +100,7 @@ Proof.
       reflexivity.
     + destruct H.
       inversion H.
-  - destruct H.
+  - destruct defining_pred.
     + destruct H.
       destruct H.
       inversion H.
@@ -114,8 +121,8 @@ Theorem runProgDefinitionRec {A B : Type} (def : A -> Prog A B) (a : A)
     end)).
 Proof.
   apply unwrap_eq.
-  asreturn3 (runProgImpl def (Rec A B a rest)).
-  asreturn3 (runProgImpl def (def a)).
+  classical_induction_full (runProgImpl def (Rec A B a rest)).
+  classical_induction_full (runProgImpl def (def a)).
   classical_auto.
   simpl in defining_pred, defining_pred0.
   classical_auto.
@@ -123,7 +130,7 @@ Proof.
   destruct defining_pred0.
   - destruct H as [b [eq rundefab]].
     subst.
-    asreturn3 (runProgImpl def (rest b)).
+    classical_induction_full (runProgImpl def (rest b)).
     simpl in *.
     classical_auto.
     destruct defining_pred, defining_pred0.
@@ -195,6 +202,6 @@ Goal collatz 6 = Creturn (Some 8).
 Proof.
   unfold collatz, runProg, collatz_prog.
   simpl.
-  repeat (simpl; rewrite ?runProgDefinitionRec, ?runProgDefinitionRet, ?bindDef).
+  repeat (simpl; rewrite ?runProgDefinitionRec, ?runProgDefinitionRet, ?monadlaw1).
   reflexivity.
 Qed.
