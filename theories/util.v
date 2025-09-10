@@ -35,3 +35,13 @@ Proof.
   apply sigEq.
   assumption.
 Qed.
+
+
+Theorem not_exists (T : Type) (P : T -> Prop) (E : ~exists t, P t)
+  : forall t, ~(P t).
+Proof.
+  intros t Pt.
+  apply E.
+  exists t.
+  assumption.
+Qed.

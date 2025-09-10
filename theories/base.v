@@ -507,55 +507,6 @@ Proof.
       contradiction.
 Qed.
 
-Theorem PFunbind {T : Type} {A : T -> Prop} {B : Prop}
-        (pa : forall t, [A t]) (f : (forall t, A t) -> [B]) : [B].
-Proof.
-Abort. (* I think that this isn't true *)
-
-Theorem classical_not_forall' T P
-  : (~ forall (t : T), [P t]) -> [exists t, ~P t].
-Proof.
-  intros F E.
-  apply F.
-  intros t Pt .
-  apply E.
-  exists t.
-  assumption.
-Qed.
-
-Theorem IdontSupposeThatThisIsTrue (T : Type) (P Q : T -> Prop)
-        (H : (forall t, [P t]) = (forall t, [Q t]))
-  : (forall t, P t) = (forall t, Q t).
-Proof.
-  apply propositional_extensionality.
-  split.
-  - intros.
-Abort.
-
-(* TODO: rename this to something sane *)
-Theorem HowAboutThis (A B : Prop) : [A -> B] = (A -> [B]).
-Proof.
-  apply propositional_extensionality.
-  split.
-  - intros.
-    pbind H.
-    apply H in H0.
-    apply Preturn.
-    assumption.
-  - intros.
-    intros f.
-    apply f.
-    intro a.
-    apply H in a.
-    exfalso.
-    apply classical_consistent.
-    pbind a.
-    apply Preturn.
-    apply f.
-    intros.
-    assumption.
-Qed.
-
 Theorem extra_monad_exists (A : Type) (B : A -> Prop)
   : [exists (a : A), B a] = [exists (a : A), [B a]].
 Proof.
@@ -576,79 +527,6 @@ Proof.
     exists x.
     assumption.
 Qed.
-(*
-What actually happened in this proof? I feel stupider by the minute.
- *)
-
-Theorem isItTrueWithDependentTypes (A : Prop) B : [forall (a : A), B a] = forall a, [B a].
-Proof.
-  apply propositional_extensionality.
-  split.
- - intros.
-    pbind H.
-    specialize (H a).
-    apply Preturn.
-    assumption.
-  - intros.
-    intros f.
-    apply f.
-    intro a.
-    specialize (H a).
-    exfalso.
-    apply classical_consistent.
-    pbind H.
-    apply Preturn.
-    apply f.
-    intros.
-    rewrite (proof_irrelevance A a0 a).
-    assumption.
-Qed.
-(*
-Yes, but I need everything to be propositions, or else the sizes of the types would be different!
-LATER: no, they are both proppositions, the sizes are not different.
-But if A is a proposition then this is pretty useless.
- *)
-
-(*
-Theorem howAboutThisOne (A : Type) (B : A -> Prop) : [forall (a : A), B a] = [forall a, [B a]].
-Proof.
-  Print inhabited.
-  Search inhabited.
-  pose (B' := (fun a' => (match a' with inhabits a => B a end) : Prop) : (inhabited A -> Prop)).
-  (* The idea is to show that this is equivalent to something where A is a prop, and use the other
-   version *)
-  (* It seems like the extra [] doesn't really help in the proof. *)
-Abort.
-*)
-
-(* Its surprising to me that this seems to not be true *)
-Theorem classical_not_forall T P
-  : (~ forall (t : T), P t) -> [exists t, ~P t].
-Proof.
-Abort.
-
-Theorem not_exists (T : Type) (P : T -> Prop) (E : ~exists t, P t)
-  : forall t, ~(P t).
-Proof.
-  intros t Pt.
-  apply E.
-  exists t.
-  assumption.
-Qed.
-
-Theorem forall_to_exists (T : Type) (P : T -> Prop)
-        (F : forall t, ~(P t))
-  : ~exists t, P t.
-Proof.
-  intros [t Pt].
-  apply (F t Pt).
-Qed.
-
-Theorem not_forall (T : Type) (P : T -> Prop)
-        (F : ~forall t, P t)
-  : exists t, ~P t.
-  pose (P' := fun t => ~P t).
-Abort.
 
 Theorem not_forall_2 (T : Type) (P : T -> Prop) (Q : forall t, P t -> Prop)
         (F : ~forall t (p : P t), [Q t p])
@@ -661,20 +539,7 @@ Proof.
   eauto.
 Qed.
 
-Theorem not_and (P Q : Prop)
-        (H : ~ (P /\ Q))
-  : [~P \/ ~Q].
-Proof.
-  apply (Pbind (Plem P)); intros PornotP.
-  destruct PornotP; apply Preturn.
-  - apply or_intror.
-    intros q.
-    apply H; auto.
-  - apply or_introl.
-    assumption.
-Qed.
-
-(* This is the thing that you get from CProp *)
+(* The whole point of using CProp instead of Prop is to get this theorem *)
 Theorem unwrap_eq (T : Type) (x y : [[|T|]]) (eq : [x = y]) : x = y.
 Proof.
   apply sigEq2.
@@ -720,6 +585,7 @@ Ltac classical_induction_full H :=
   rewrite <- eq;
   clear eq.
 
+(* This is a more general version of Pif that gets access to P (or not P) in the branches *)
 
 Definition Pif' {T : Type} (P : Prop) (b1 : P -> T) (b2 : ~P -> T) : Classical T.
   refine (exist _ (fun b => toCProp ({p : P | b = b1 p} \/ {np : ~P | b = b2 np})) _).

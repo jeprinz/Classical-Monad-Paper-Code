@@ -1,7 +1,5 @@
 Require Import base.
 
-(* This version of quotient has a [] in the definition *)
-
 Require Import Stdlib.Classes.RelationClasses.
 Require Import Stdlib.Relations.Relation_Definitions.
 Require Import PropExtensionality. (*this line also imports proof irrelevance*)

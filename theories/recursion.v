@@ -83,7 +83,6 @@ Definition runProg {A B : Type} (def : A -> Prog A B) (a : A) : Classical (optio
 Theorem runProgDefinitionRet {A B : Type} (def : A -> Prog A B) (b : B)
   : runProgImpl def (Ret _ _ b) = Creturn (Some b).
 Proof.
-  Check choiceInd.
   apply unwrap_eq.
   classical_induction_full (runProgImpl def (Ret A B b)).
   simpl in defining_pred.
