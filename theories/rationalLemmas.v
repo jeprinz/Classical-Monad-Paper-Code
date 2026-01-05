@@ -6,6 +6,8 @@ Require Import QOrderedType.
 
 (* This file has helper lemmas about rational numbers and integers that are used in cauchy.v *)
 
+Locate File "QArith.v".
+
 Lemma write_frac_as_Qmake : forall {z : Z},
     Z.lt 0 z ->
     1 / (inject_Z z) = Qmake 1 (Z.to_pos z).

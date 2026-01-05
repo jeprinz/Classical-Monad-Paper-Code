@@ -208,8 +208,7 @@ Proof.
   apply Preturn.
   exists a.
   split.
-  - 
-    apply sigEq2.
+  - apply sigEq2.
     simpl.
     extensionality t.
     apply CProp_Ext.
