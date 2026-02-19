@@ -166,7 +166,6 @@ Module Quotient (EqRel : EqRel).
       apply H.
   Qed.
 
-  (* You could maybe get rid of the [] here, if R outputted a CProp? I'm not sure whats ideal. *)
   Theorem complete : forall a b, mk a = mk b -> [R a b].
   Proof.
     intros.
@@ -210,7 +209,6 @@ Module Quotient (EqRel : EqRel).
       classical_auto.
       specialize aSafax as [a [Sa fax]].
       specialize a'Sa'fay as [a' [Sa' fay]].
-      (* this is line 162 *)
       destruct (proj2_sig (f a)) as [_ unique].
       specialize (SR a a' Sa).
       apply SR in Sa'.
@@ -306,9 +304,8 @@ Module Quotient (EqRel : EqRel).
       + intros.
         apply (proj1 (proj2_sig x) _ _ H0).
         assumption.
-  Qed. (* Surely this proof can be simplified or written in terms of something else? *)
+  Qed.
 
-  Check lift.
   Definition lift2 {T : Type} (f : A -> A -> Classical T)
              (respects : forall x y x' y', R x x' -> R y y' -> f x y = f x' y')
              (x y : t) : Classical T.

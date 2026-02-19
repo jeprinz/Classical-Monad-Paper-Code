@@ -5,7 +5,6 @@ Require Import Coq.Logic.PropExtensionality.
 Require Import util.
 
 (* Double Negation Monad *)
-
 Definition PClassical (P : Prop) : Prop := not (not P).
 Notation "[ T ]" := (PClassical T).
 
@@ -29,6 +28,8 @@ Qed.
 
 Ltac pbind H := apply (Pbind H); clear H; intros H.
 
+(* this is equivalent to the usual definition of stable propositions, under the assumption
+ of propositional extentionality, which we are using in this development. *)
 Definition CProp : Type := {P : Prop | exists P', P = PClassical P'}.
 
 Definition isTrue (P : CProp) : Prop := proj1_sig P.
@@ -146,7 +147,6 @@ Definition Cbind {A B : Type} (pa : Classical A) (f : A -> Classical B) : Classi
     reflexivity.
 Defined.
 
-(* one of the monad laws *)
 Theorem monadlaw1 : forall A B (a : A) (f : A -> Classical B),
     Cbind (Creturn a) f = f a.
 Proof.
@@ -252,7 +252,7 @@ Proof.
   assumption.
 Qed.
 
-(* This is something that doesn't work without CProp!!!! *)
+(* This theorem is false if we used Prop instead of CProp *)
 Theorem removedneq (T : Type) (t1 t2 : Classical T) (eq : PClassical (t1 = t2)) : t1 = t2.
 Proof.
   apply sigEq2.
@@ -281,7 +281,6 @@ Proof.
     apply Preturn.
     assumption.
 Qed.
-
 
 Definition toProp (p : Classical Prop) : Prop :=
   PClassical (p = Creturn True).
@@ -356,6 +355,7 @@ Proof.
   split; auto.
 Qed.
 
+(* a tactic to make applying the induction principle more convenient *)
 Ltac classical_induction H :=
   let H2 := fresh "H2" in
   let eq := fresh "eq" in
@@ -468,6 +468,7 @@ Proof.
     auto.
 Qed.
 
+(* the tactic described in section 6 of the paper *)
 Ltac classical_auto :=
   repeat first [
       match goal with
@@ -585,7 +586,6 @@ Ltac classical_induction_full H :=
   clear eq.
 
 (* This is a more general version of Pif that gets access to P (or not P) in the branches *)
-
 Definition Pif' {T : Type} (P : Prop) (b1 : P -> T) (b2 : ~P -> T) : Classical T.
   refine (exist _ (fun b => toCProp ({p : P | b = b1 p} \/ {np : ~P | b = b2 np})) _).
   split.

@@ -10,7 +10,7 @@ and quotients, here I put them together into a type of real numbers
 using equality
  *)
 
-Module CauchyEq <: EqRel. (*NOTE: <: makes the contents transparent from the outside, as oppsed to : *)
+Module CauchyEq <: EqRel.
   Definition A := cauchy.
   Definition R := Ceq.
   Definition Rsym := Ceq_sym.
@@ -100,7 +100,7 @@ Proof.
   apply additive_identity_r.
 Qed.
 
-Definition Rinv' (x : R) (*H : x <> Rzero*) : R.
+Definition Rinv' (x : R) : R.
   apply Reals.unwrap_quot.
   refine (Reals.lift (fun x => (Pif' (~ Ceq x Czero)
                                      (fun nonzero => Reals.mk (Cinv x nonzero))

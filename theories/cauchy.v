@@ -106,7 +106,7 @@ Theorem not_Cle_property_strong : forall x y,
     [exists epsilon, epsilon > 0 /\ exists N : nat, forall n, le N n -> toProp (
      Cbind (seq x n) (fun xn =>
      Cbind (seq y n) (fun yn =>
-     Creturn (yn + epsilon <= xn))))]. (* I think this could be < *)
+     Creturn (yn + epsilon <= xn))))].
 Proof.
   intros.
   unfold Cle in H.
@@ -184,13 +184,12 @@ Proof.
   apply Qle_refl.
 Qed.
 
-(* should prove this in terms of the strong version above instead of just repeating the proof *)
 Theorem not_Cle_property : forall x y,
     ~ (Cle x y) ->
     [exists N : nat, forall n, le N n -> toProp (
      Cbind (seq x n) (fun xn =>
      Cbind (seq y n) (fun yn =>
-     Creturn (yn <= xn))))]. (* I think this could be < *)
+     Creturn (yn <= xn))))].
 Proof.
   intros.
   unfold Cle in H.
@@ -303,7 +302,7 @@ Definition Cmult (seq1 seq2 : cauchy) : cauchy.
   specialize (bound2fact boundN2).
   classical_induction (seq seq1 boundN1).
   classical_induction (seq seq2 boundN2).
-  rename x0 into y. (* These bounds are within 1 of the value of seq1 and seq2*)
+  rename x0 into y.
   pose (bound1 := (Qabs x) + 1).
   pose (bound2 := (Qabs y) + 1).
 
@@ -511,7 +510,6 @@ Proof.
   classical_induction (seq y n).
   classical_auto.
   apply Preturn.
-  (* Is this sort of garbage really the easiest way to prove basic rational number stuff in rocq? *)
   assert (x0 - x1 == 0). {
     apply (Qplus_inj_r _ _ x1).
     field_simplify.
@@ -872,7 +870,6 @@ Proof.
     pose (Q1 := inject_Z (2 ^ Z.of_nat n)).
     assert (~ Q1 == 0) as nonneg1. {
       unfold Q1.
-      (* TODO: use lemma here *)
       apply pow_nonzero.
     }
     pose (Q2 := inject_Z (Z.pow_pos 2 (Pos.of_succ_nat n))).
@@ -917,7 +914,6 @@ Proof.
       apply (Qeq_trans _ ((startTop - startBot) * Q2)); try field.
       apply (Qeq_trans _ (2 * (startTop - startBot) * Q1)); try field.
 
-      (* by doing this stuff I can make the thing look like the thing *)
       apply (Qeq_trans _ _ _ (Qmult_comp _ _ (Qeq_refl _) _ _ double)).
       field.
     }
@@ -1522,8 +1518,6 @@ Proof.
   clear ltprop.
   rename otherboundprop into ltprop.
 
-  (***********************)
-  
   unfold Cle in ltprop.
   specialize (ltprop thirde Ht).
   classical_auto.
